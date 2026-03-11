@@ -135,14 +135,50 @@ async function mcpRequest(endpoint, method, params, sessionId) {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse the scan_domain text result returned by the MCP server.
+ * Try to extract structured JSON from the MCP content array.
  *
- * The server returns a formatted text report (see format-report.ts).
- * We extract structured data from it.
+ * The MCP server (v1.1+) returns a second content block containing
+ * machine-readable JSON wrapped in <!-- STRUCTURED_RESULT ... --> delimiters.
+ * This is more resilient than regex-parsing the human-readable text report.
  */
-function parseScanResult(textContent) {
-	const text = typeof textContent === 'string' ? textContent : String(textContent);
+function tryParseStructuredResult(contentArray) {
+	if (!Array.isArray(contentArray)) return null;
 
+	for (const item of contentArray) {
+		const text = item.text || '';
+		const match = text.match(/<!-- STRUCTURED_RESULT\n([\s\S]*?)\nSTRUCTURED_RESULT -->/);
+		if (match) {
+			try {
+				const data = JSON.parse(match[1]);
+				return {
+					score: data.score,
+					grade: data.grade,
+					maturity: data.maturityLabel || 'Unknown',
+					categories: Object.entries(data.categoryScores).map(([name, score]) => ({
+						status: score >= 80 ? '\u2713' : score >= 50 ? '\u26A0' : '\u2717',
+						name: name.toUpperCase(),
+						score,
+					})),
+					findings: [], // populated below from text report
+					findingCounts: data.findingCounts,
+					rawText: contentArray.map((c) => c.text || '').join('\n'),
+				};
+			} catch {
+				// Malformed JSON — fall through to regex parsing
+			}
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Parse the scan_domain text result returned by the MCP server using regex.
+ *
+ * Fallback for servers that don't include the structured JSON block.
+ * The server returns a formatted text report (see format-report.ts).
+ */
+function parseScanResultFromText(text) {
 	// Overall Score: 82/100 (B+)
 	const scoreMatch = text.match(/Overall Score:\s*(\d+)\/100\s*\(([^)]+)\)/);
 	const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
@@ -177,6 +213,31 @@ function parseScanResult(textContent) {
 	}
 
 	return { score, grade, maturity, categories, findings, rawText: text };
+}
+
+/**
+ * Parse scan results from MCP content array.
+ *
+ * Tries structured JSON first (resilient), falls back to regex (legacy).
+ * When structured JSON is used, findings are still extracted from the
+ * text report since the structured block only carries severity counts.
+ */
+function parseScanResult(contentArray) {
+	const rawText = Array.isArray(contentArray)
+		? contentArray.map((c) => c.text || '').join('\n')
+		: String(contentArray);
+
+	// Try structured JSON first
+	const structured = tryParseStructuredResult(contentArray);
+	if (structured) {
+		// Extract finding details from the text report for the summary table
+		const textParsed = parseScanResultFromText(rawText);
+		structured.findings = textParsed.findings;
+		return structured;
+	}
+
+	// Fallback: regex parsing
+	return parseScanResultFromText(rawText);
 }
 
 // ---------------------------------------------------------------------------
@@ -305,7 +366,7 @@ async function main() {
 	}
 
 	// Step 2: Call scan_domain
-	let scanText;
+	let scanContent;
 	try {
 		const scanResult = await mcpRequest(
 			endpoint,
@@ -318,23 +379,22 @@ async function main() {
 		);
 
 		// The result contains content array with text items
-		const content = scanResult.result?.content;
-		if (!content || !Array.isArray(content) || content.length === 0) {
+		scanContent = scanResult.result?.content;
+		if (!scanContent || !Array.isArray(scanContent) || scanContent.length === 0) {
 			throw new Error('Empty response from scan_domain');
 		}
 
-		scanText = content.map((item) => item.text || '').join('\n');
-
 		if (scanResult.result?.isError) {
-			throw new Error(`scan_domain returned error: ${scanText}`);
+			const errorText = scanContent.map((item) => item.text || '').join('\n');
+			throw new Error(`scan_domain returned error: ${errorText}`);
 		}
 	} catch (err) {
 		console.error(`::error::Failed to scan domain: ${err.message}`);
 		process.exit(1);
 	}
 
-	// Step 3: Parse results
-	const result = parseScanResult(scanText);
+	// Step 3: Parse results (tries structured JSON first, falls back to regex)
+	const result = parseScanResult(scanContent);
 	const passed = meetsMinimumGrade(result.grade, minimumGrade);
 
 	console.log(`\nScan complete: ${result.grade} (${result.score}/100) — Maturity: ${result.maturity}`);

@@ -189,9 +189,12 @@ The summary is visible in the Actions run UI under the **Summary** tab.
 
 1. Initializes an MCP session with the Blackveil DNS server
 2. Calls the `scan_domain` tool via JSON-RPC 2.0
-3. Parses the scan report for score, grade, maturity, and findings
-4. Writes outputs and a Markdown job summary
-5. Exits with code 1 if the grade is below the minimum threshold
+3. Parses the structured JSON result block for score, grade, maturity, and category scores (falls back to regex parsing for older server versions)
+4. Extracts finding details from the human-readable text report for the summary table
+5. Writes outputs and a Markdown job summary
+6. Exits with code 1 if the grade is below the minimum threshold
+
+The MCP server returns two content blocks: a human-readable text report and a machine-readable structured JSON block. The action uses the structured JSON for reliable data extraction, with regex fallback for backwards compatibility.
 
 No API key is required — the public endpoint is free to use with rate limiting (30 req/min, 200 req/hr).
 

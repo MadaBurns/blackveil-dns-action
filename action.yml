@@ -14,6 +14,13 @@ inputs:
     description: "Minimum passing grade (A+, A, B+, B, C+, C, D+, D, E, F)"
     required: false
     default: "C"
+  profile:
+    description: "Scoring profile: auto, mail_enabled, enterprise_mail, non_mail, web_only, minimal"
+    required: false
+    default: "auto"
+  api-key:
+    description: "Blackveil DNS API key for authenticated access (bypasses rate limits)"
+    required: false
   endpoint:
     description: "MCP endpoint URL"
     required: false
@@ -32,6 +39,9 @@ outputs:
   passed:
     description: "'true' if grade meets minimum-grade threshold, 'false' otherwise"
     value: ${{ steps.scan.outputs.passed }}
+  scoring-profile:
+    description: "Scoring profile used (detected or explicit)"
+    value: ${{ steps.scan.outputs.scoring-profile }}
 
 runs:
   using: "composite"
@@ -47,5 +57,7 @@ runs:
       env:
         INPUT_DOMAIN: ${{ inputs.domain }}
         INPUT_MINIMUM_GRADE: ${{ inputs.minimum-grade }}
+        INPUT_PROFILE: ${{ inputs.profile }}
+        INPUT_API_KEY: ${{ inputs.api-key }}
         INPUT_ENDPOINT: ${{ inputs.endpoint }}
       run: node "${{ github.action_path }}/scan.mjs"

@@ -73,13 +73,16 @@ async function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function mcpRequest(endpoint, method, params, sessionId) {
+async function mcpRequest(endpoint, method, params, sessionId, apiKey) {
 	const headers = {
 		'Content-Type': 'application/json',
 		Accept: 'application/json',
 	};
 	if (sessionId) {
 		headers['Mcp-Session-Id'] = sessionId;
+	}
+	if (apiKey) {
+		headers['Authorization'] = `Bearer ${apiKey}`;
 	}
 
 	const body = JSON.stringify(jsonRpcRequest(method, params));
@@ -154,6 +157,7 @@ function tryParseStructuredResult(contentArray) {
 					score: data.score,
 					grade: data.grade,
 					maturity: data.maturityLabel || 'Unknown',
+					scoringProfile: data.scoringProfile || 'mail_enabled',
 					categories: Object.entries(data.categoryScores).map(([name, score]) => ({
 						status: score >= 80 ? '\u2713' : score >= 50 ? '\u26A0' : '\u2717',
 						name: name.toUpperCase(),
@@ -272,7 +276,7 @@ function categoryStatusEmoji(status) {
 	return '\u274C'; // cross mark
 }
 
-function buildSummaryMarkdown(result, domain, minimumGrade, passed) {
+function buildSummaryMarkdown(result, domain, minimumGrade, passed, profile) {
 	const lines = [];
 
 	lines.push(`## ${gradeEmoji(result.grade)} Blackveil DNS Security Scan: \`${domain}\``);
@@ -282,6 +286,7 @@ function buildSummaryMarkdown(result, domain, minimumGrade, passed) {
 	lines.push(`| **Score** | ${result.score}/100 |`);
 	lines.push(`| **Grade** | **${result.grade}** |`);
 	lines.push(`| **Maturity** | ${result.maturity} |`);
+	lines.push(`| **Scoring Profile** | ${result.scoringProfile || profile} |`);
 	lines.push(`| **Minimum Grade** | ${minimumGrade} |`);
 	lines.push(`| **Result** | ${passed ? '\u2705 Passed' : '\u274C Failed'} |`);
 	lines.push('');
@@ -328,9 +333,13 @@ function buildSummaryMarkdown(result, domain, minimumGrade, passed) {
 // Main
 // ---------------------------------------------------------------------------
 
+const VALID_PROFILES = ['auto', 'mail_enabled', 'enterprise_mail', 'non_mail', 'web_only', 'minimal'];
+
 async function main() {
 	const domain = process.env.INPUT_DOMAIN;
 	const minimumGrade = (process.env.INPUT_MINIMUM_GRADE || 'C').toUpperCase().trim();
+	const profile = (process.env.INPUT_PROFILE || 'auto').toLowerCase().trim();
+	const apiKey = process.env.INPUT_API_KEY || '';
 	const endpoint = process.env.INPUT_ENDPOINT || 'https://dns-mcp.blackveilsecurity.com/mcp';
 
 	if (!domain) {
@@ -344,8 +353,16 @@ async function main() {
 		process.exit(1);
 	}
 
+	// Validate profile
+	if (!VALID_PROFILES.includes(profile)) {
+		console.error(`::error::Invalid profile: "${profile}". Must be one of: ${VALID_PROFILES.join(', ')}`);
+		process.exit(1);
+	}
+
 	console.log(`Scanning ${domain} via ${endpoint} ...`);
 	console.log(`Minimum grade: ${minimumGrade}`);
+	if (profile !== 'auto') console.log(`Scoring profile: ${profile}`);
+	if (apiKey) console.log('Using authenticated access');
 
 	// Step 1: Initialize MCP session
 	let sessionId;
@@ -355,9 +372,9 @@ async function main() {
 			capabilities: {},
 			clientInfo: {
 				name: 'blackveil-dns-action',
-				version: '1.0.0',
+				version: '1.1.0',
 			},
-		});
+		}, undefined, apiKey);
 		sessionId = initResult.sessionId;
 		console.log('MCP session initialized');
 	} catch (err) {
@@ -366,6 +383,11 @@ async function main() {
 	}
 
 	// Step 2: Call scan_domain
+	const scanArgs = { domain };
+	if (profile !== 'auto') {
+		scanArgs.profile = profile;
+	}
+
 	let scanContent;
 	try {
 		const scanResult = await mcpRequest(
@@ -373,9 +395,10 @@ async function main() {
 			'tools/call',
 			{
 				name: 'scan_domain',
-				arguments: { domain },
+				arguments: scanArgs,
 			},
 			sessionId,
+			apiKey,
 		);
 
 		// The result contains content array with text items
@@ -397,7 +420,7 @@ async function main() {
 	const result = parseScanResult(scanContent);
 	const passed = meetsMinimumGrade(result.grade, minimumGrade);
 
-	console.log(`\nScan complete: ${result.grade} (${result.score}/100) — Maturity: ${result.maturity}`);
+	console.log(`\nScan complete: ${result.grade} (${result.score}/100) — Maturity: ${result.maturity} — Profile: ${result.scoringProfile || profile}`);
 	console.log(`Minimum grade: ${minimumGrade} — ${passed ? 'PASSED' : 'FAILED'}`);
 
 	// Step 4: Set outputs
@@ -405,9 +428,10 @@ async function main() {
 	setOutput('grade', result.grade);
 	setOutput('maturity', result.maturity);
 	setOutput('passed', String(passed));
+	setOutput('scoring-profile', result.scoringProfile || profile);
 
 	// Step 5: Write job summary
-	const summaryMd = buildSummaryMarkdown(result, domain, minimumGrade, passed);
+	const summaryMd = buildSummaryMarkdown(result, domain, minimumGrade, passed, profile);
 	writeSummary(summaryMd);
 
 	// Step 6: Exit with appropriate code

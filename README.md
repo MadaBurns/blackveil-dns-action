@@ -32,6 +32,7 @@ jobs:
           echo "Score: ${{ steps.scan.outputs.score }}"
           echo "Grade: ${{ steps.scan.outputs.grade }}"
           echo "Maturity: ${{ steps.scan.outputs.maturity }}"
+          echo "Profile: ${{ steps.scan.outputs.scoring-profile }}"
           echo "Passed: ${{ steps.scan.outputs.passed }}"
 ```
 
@@ -41,6 +42,8 @@ jobs:
 |-------|----------|---------|-------------|
 | `domain` | Yes | — | Domain to scan (e.g. `example.com`) |
 | `minimum-grade` | No | `C` | Minimum passing grade. One of: `A+`, `A`, `B+`, `B`, `C+`, `C`, `D+`, `D`, `E`, `F` |
+| `profile` | No | `auto` | Scoring profile: `auto`, `mail_enabled`, `enterprise_mail`, `non_mail`, `web_only`, `minimal` |
+| `api-key` | No | — | Blackveil DNS API key for authenticated access (bypasses rate limits) |
 | `endpoint` | No | `https://dns-mcp.blackveilsecurity.com/mcp` | MCP endpoint URL |
 
 ## Outputs
@@ -51,6 +54,7 @@ jobs:
 | `grade` | Letter grade | `B+` |
 | `maturity` | Email security maturity stage | `Enforcing` |
 | `passed` | Whether grade meets threshold | `true` |
+| `scoring-profile` | Scoring profile used (detected or explicit) | `mail_enabled` |
 
 ## Grade Scale
 
@@ -150,6 +154,52 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 ```
 
+### Authenticated Access (Bypass Rate Limits)
+
+For CI/CD pipelines that scan frequently or use matrix strategies across many domains, use an API key to bypass rate limits:
+
+```yaml
+- name: Scan DNS (authenticated)
+  uses: MadaBurns/blackveil-dns-action@v1
+  with:
+    domain: mycompany.com
+    minimum-grade: B
+    api-key: ${{ secrets.BV_API_KEY }}
+```
+
+Store your API key as a [GitHub Actions secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets). Authenticated requests bypass all per-IP rate limits.
+
+### Context-Aware Scoring Profiles
+
+By default, the scanner auto-detects whether a domain is mail-enabled and adjusts scoring accordingly. You can override this with an explicit profile:
+
+```yaml
+# Non-mail domain — don't penalize for missing SPF/DMARC/DKIM
+- name: Scan API domain
+  uses: MadaBurns/blackveil-dns-action@v1
+  with:
+    domain: api.mycompany.com
+    profile: non_mail
+    minimum-grade: B
+
+# Enterprise mail — stricter scoring for mail infrastructure
+- name: Scan mail domain
+  uses: MadaBurns/blackveil-dns-action@v1
+  with:
+    domain: mail.mycompany.com
+    profile: enterprise_mail
+    minimum-grade: A
+```
+
+| Profile | Use case |
+|---------|----------|
+| `auto` | Auto-detect from MX records (default) |
+| `mail_enabled` | Standard mail domain |
+| `enterprise_mail` | Enterprise mail with stricter requirements |
+| `non_mail` | Domain that doesn't send/receive email |
+| `web_only` | Web-only domain (no mail infrastructure) |
+| `minimal` | Minimal checks only |
+
 ### Branch Protection (Require DNS Grade)
 
 To enforce DNS security as a required status check:
@@ -196,7 +246,16 @@ The summary is visible in the Actions run UI under the **Summary** tab.
 
 The MCP server returns two content blocks: a human-readable text report and a machine-readable structured JSON block. The action uses the structured JSON for reliable data extraction, with regex fallback for backwards compatibility.
 
-No API key is required — the public endpoint is free to use with rate limiting (30 req/min, 200 req/hr).
+No API key is required — the public endpoint is free to use with rate limiting (50 req/min, 300 req/hr per IP, 75 scans/day per IP). For higher limits, use the `api-key` input with a Blackveil DNS API key.
+
+## Rate Limits
+
+| Tier | Per-Minute | Per-Hour | Daily Scans |
+|------|-----------|----------|-------------|
+| Free (no API key) | 50 | 300 | 75 |
+| Authenticated (API key) | Unlimited | Unlimited | Unlimited |
+
+**Tip:** If you scan multiple domains in a matrix strategy, use an API key to avoid hitting the daily scan limit.
 
 ## License
 

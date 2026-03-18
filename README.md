@@ -259,4 +259,4 @@ No API key is required — the public endpoint is free to use with rate limiting
 
 ## License
 
-MIT
+[BSL 1.1](LICENSE) — Non-commercial use permitted. Converts to MIT on 2030-03-17.

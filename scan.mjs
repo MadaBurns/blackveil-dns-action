@@ -372,7 +372,7 @@ async function main() {
 			capabilities: {},
 			clientInfo: {
 				name: 'blackveil-dns-action',
-				version: '1.1.0',
+				version: '1.2.0',
 			},
 		}, undefined, apiKey);
 		sessionId = initResult.sessionId;

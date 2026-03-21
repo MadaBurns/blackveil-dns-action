@@ -2,7 +2,7 @@
 
 Scan your domain's DNS and email security configuration in CI/CD. Powered by the [Blackveil DNS MCP server](https://github.com/MadaBurns/bv-mcp).
 
-Runs a full DNS security audit (SPF, DMARC, DKIM, DNSSEC, SSL, MTA-STS, MX, CAA, BIMI, TLS-RPT, NS, subdomain takeover) and enforces a minimum grade threshold. Fails the workflow if the domain's security posture is below the required grade.
+Runs a full DNS security audit (SPF, DMARC, DKIM, DNSSEC, SSL, MTA-STS, MX, CAA, BIMI, TLS-RPT, NS, HTTP security, DANE, subdomain takeover) and enforces a minimum grade threshold. Fails the workflow if the domain's security posture is below the required grade.
 
 ## Quick Start
 

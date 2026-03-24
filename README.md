@@ -256,7 +256,8 @@ No API key is required — the public endpoint is free to use with rate limiting
 | Free (no API key) | 50 | 75 |
 | Agent | 50 | 200 |
 | Developer (Pro) | 50 | 500 |
-| Enterprise | Custom | Custom |
+| Enterprise | 50 | 10,000 |
+| Partner | 50 | 100,000 |
 
 **Tip:** If you scan multiple domains in a matrix strategy, use an API key to avoid hitting the daily scan limit. CI/CD runners often share public IPs, which can exhaust the free tier quickly.
 

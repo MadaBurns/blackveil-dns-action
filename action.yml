@@ -11,7 +11,7 @@ inputs:
     description: "Domain to scan (e.g. example.com)"
     required: true
   minimum-grade:
-    description: "Minimum passing grade (A+, A, B+, B, C+, C, D+, D, E, F)"
+    description: "Minimum passing grade (A+, A, B+, B, C+, C, D+, D, F)"
     required: false
     default: "C"
   profile:
@@ -42,6 +42,12 @@ outputs:
   scoring-profile:
     description: "Scoring profile used (detected or explicit)"
     value: ${{ steps.scan.outputs.scoring-profile }}
+  finding-counts:
+    description: "JSON object with finding counts by severity (critical, high, medium, low)"
+    value: ${{ steps.scan.outputs.finding-counts }}
+  interaction-effects:
+    description: "JSON array of scoring interaction penalties (ruleId, penalty, narrative)"
+    value: ${{ steps.scan.outputs.interaction-effects }}
 
 runs:
   using: "composite"

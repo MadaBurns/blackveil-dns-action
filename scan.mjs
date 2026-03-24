@@ -13,7 +13,7 @@ import { appendFileSync } from 'node:fs';
 // Grade ordering
 // ---------------------------------------------------------------------------
 
-const GRADE_ORDER = ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'E', 'F'];
+const GRADE_ORDER = ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F'];
 
 function gradeRank(grade) {
 	const index = GRADE_ORDER.indexOf(grade);
@@ -165,6 +165,7 @@ function tryParseStructuredResult(contentArray) {
 					})),
 					findings: [], // populated below from text report
 					findingCounts: data.findingCounts,
+					interactionEffects: data.interactionEffects || [],
 					rawText: contentArray.map((c) => c.text || '').join('\n'),
 				};
 			} catch {
@@ -289,6 +290,15 @@ function buildSummaryMarkdown(result, domain, minimumGrade, passed, profile) {
 	lines.push(`| **Scoring Profile** | ${result.scoringProfile || profile} |`);
 	lines.push(`| **Minimum Grade** | ${minimumGrade} |`);
 	lines.push(`| **Result** | ${passed ? '\u2705 Passed' : '\u274C Failed'} |`);
+	if (result.findingCounts) {
+		const fc = result.findingCounts;
+		const parts = [];
+		if (fc.critical) parts.push(`${fc.critical} critical`);
+		if (fc.high) parts.push(`${fc.high} high`);
+		if (fc.medium) parts.push(`${fc.medium} medium`);
+		if (fc.low) parts.push(`${fc.low} low`);
+		lines.push(`| **Findings** | ${parts.length > 0 ? parts.join(', ') : 'None'} |`);
+	}
 	lines.push('');
 
 	// Category scores
@@ -320,6 +330,16 @@ function buildSummaryMarkdown(result, domain, minimumGrade, passed, profile) {
 		lines.push('### Findings');
 		lines.push('');
 		lines.push('\u2705 No security issues found.');
+		lines.push('');
+	}
+
+	// Interaction effects (scoring penalties from category interactions)
+	if (result.interactionEffects && result.interactionEffects.length > 0) {
+		lines.push('### Scoring Interactions');
+		lines.push('');
+		for (const effect of result.interactionEffects) {
+			lines.push(`- **[-${effect.penalty}]** ${effect.narrative}`);
+		}
 		lines.push('');
 	}
 
@@ -429,6 +449,12 @@ async function main() {
 	setOutput('maturity', result.maturity);
 	setOutput('passed', String(passed));
 	setOutput('scoring-profile', result.scoringProfile || profile);
+	if (result.findingCounts) {
+		setOutput('finding-counts', JSON.stringify(result.findingCounts));
+	}
+	if (result.interactionEffects && result.interactionEffects.length > 0) {
+		setOutput('interaction-effects', JSON.stringify(result.interactionEffects));
+	}
 
 	// Step 5: Write job summary
 	const summaryMd = buildSummaryMarkdown(result, domain, minimumGrade, passed, profile);

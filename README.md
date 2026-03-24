@@ -41,7 +41,7 @@ jobs:
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `domain` | Yes | — | Domain to scan (e.g. `example.com`) |
-| `minimum-grade` | No | `C` | Minimum passing grade. One of: `A+`, `A`, `B+`, `B`, `C+`, `C`, `D+`, `D`, `E`, `F` |
+| `minimum-grade` | No | `C` | Minimum passing grade. One of: `A+`, `A`, `B+`, `B`, `C+`, `C`, `D+`, `D`, `F` |
 | `profile` | No | `auto` | Scoring profile: `auto`, `mail_enabled`, `enterprise_mail`, `non_mail`, `web_only`, `minimal` |
 | `api-key` | No | — | Blackveil DNS API key for authenticated access (bypasses rate limits) |
 | `endpoint` | No | `https://dns-mcp.blackveilsecurity.com/mcp` | MCP endpoint URL |
@@ -55,20 +55,21 @@ jobs:
 | `maturity` | Email security maturity stage | `Enforcing` |
 | `passed` | Whether grade meets threshold | `true` |
 | `scoring-profile` | Scoring profile used (detected or explicit) | `mail_enabled` |
+| `finding-counts` | JSON severity breakdown | `{"critical":0,"high":1,"medium":2,"low":3}` |
+| `interaction-effects` | JSON scoring interaction penalties (if any) | `[{"ruleId":"...","penalty":5,"narrative":"..."}]` |
 
 ## Grade Scale
 
 | Grade | Score Range |
 |-------|-------------|
-| A+ | 90-100 |
-| A | 85-89 |
-| B+ | 80-84 |
-| B | 75-79 |
-| C+ | 70-74 |
-| C | 65-69 |
-| D+ | 60-64 |
-| D | 55-59 |
-| E | 50-54 |
+| A+ | 92-100 |
+| A | 87-91 |
+| B+ | 82-86 |
+| B | 76-81 |
+| C+ | 70-75 |
+| C | 63-69 |
+| D+ | 56-62 |
+| D | 50-55 |
 | F | 0-49 |
 
 ## Examples
@@ -250,12 +251,14 @@ No API key is required — the public endpoint is free to use with rate limiting
 
 ## Rate Limits
 
-| Tier | Per-Minute | Per-Hour | Daily Scans |
-|------|-----------|----------|-------------|
-| Free (no API key) | 50 | 300 | 75 |
-| Authenticated (API key) | Unlimited | Unlimited | Unlimited |
+| Tier | Per-Minute | Daily Scans |
+|------|-----------|-------------|
+| Free (no API key) | 50 | 75 |
+| Agent | 50 | 200 |
+| Developer (Pro) | 50 | 500 |
+| Enterprise | Custom | Custom |
 
-**Tip:** If you scan multiple domains in a matrix strategy, use an API key to avoid hitting the daily scan limit.
+**Tip:** If you scan multiple domains in a matrix strategy, use an API key to avoid hitting the daily scan limit. CI/CD runners often share public IPs, which can exhaust the free tier quickly.
 
 ## License
 

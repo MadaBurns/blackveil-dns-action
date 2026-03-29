@@ -19,3 +19,6 @@ jobs:
           echo "Score: ${{ steps.scan.outputs.score }}"
           echo "Grade: ${{ steps.scan.outputs.grade }}"
           echo "Passed: ${{ steps.scan.outputs.passed }}"
+          echo "Profile: ${{ steps.scan.outputs.scoring-profile }}"
+          echo "Percentile: ${{ steps.scan.outputs.percentile-rank }}"
+          echo "Spoofability: ${{ steps.scan.outputs.spoofability-score }}"

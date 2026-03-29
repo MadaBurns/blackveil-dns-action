@@ -48,6 +48,12 @@ outputs:
   interaction-effects:
     description: "JSON array of scoring interaction penalties (ruleId, penalty, narrative)"
     value: ${{ steps.scan.outputs.interaction-effects }}
+  percentile-rank:
+    description: "Percentile rank within the scoring profile population (0-100). Empty when insufficient data."
+    value: ${{ steps.scan.outputs.percentile-rank }}
+  spoofability-score:
+    description: "Composite email spoofability score (0-100, higher = more spoofable). Empty when not computed."
+    value: ${{ steps.scan.outputs.spoofability-score }}
 
 runs:
   using: "composite"

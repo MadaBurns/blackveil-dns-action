@@ -57,6 +57,8 @@ jobs:
 | `scoring-profile` | Scoring profile used (detected or explicit) | `mail_enabled` |
 | `finding-counts` | JSON severity breakdown | `{"critical":0,"high":1,"medium":2,"low":3}` |
 | `interaction-effects` | JSON scoring interaction penalties (if any) | `[{"ruleId":"...","penalty":5,"narrative":"..."}]` |
+| `percentile-rank` | Percentile rank within scoring profile (0-100) | `72` |
+| `spoofability-score` | Email spoofability score (0-100, higher = worse) | `35` |
 
 ## Grade Scale
 

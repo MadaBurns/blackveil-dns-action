@@ -10,6 +10,13 @@
 import { appendFileSync } from 'node:fs';
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const ACTION_VERSION = '1.3.0';
+const USER_AGENT = `blackveil-dns-action/${ACTION_VERSION}`;
+
+// ---------------------------------------------------------------------------
 // Grade ordering
 // ---------------------------------------------------------------------------
 
@@ -77,6 +84,7 @@ async function mcpRequest(endpoint, method, params, sessionId, apiKey) {
 	const headers = {
 		'Content-Type': 'application/json',
 		Accept: 'application/json',
+		'User-Agent': USER_AGENT,
 	};
 	if (sessionId) {
 		headers['Mcp-Session-Id'] = sessionId;
@@ -166,6 +174,9 @@ function tryParseStructuredResult(contentArray) {
 					findings: [], // populated below from text report
 					findingCounts: data.findingCounts,
 					interactionEffects: data.interactionEffects || [],
+					percentileRank: data.percentileRank ?? null,
+					spoofabilityScore: data.spoofabilityScore ?? null,
+					cached: data.cached ?? false,
 					rawText: contentArray.map((c) => c.text || '').join('\n'),
 				};
 			} catch {
@@ -299,6 +310,15 @@ function buildSummaryMarkdown(result, domain, minimumGrade, passed, profile) {
 		if (fc.low) parts.push(`${fc.low} low`);
 		lines.push(`| **Findings** | ${parts.length > 0 ? parts.join(', ') : 'None'} |`);
 	}
+	if (result.percentileRank != null) {
+		lines.push(`| **Percentile** | Top ${100 - result.percentileRank}% |`);
+	}
+	if (result.spoofabilityScore != null) {
+		lines.push(`| **Spoofability** | ${result.spoofabilityScore}/100 |`);
+	}
+	if (result.cached) {
+		lines.push(`| **Cached** | Yes |`);
+	}
 	lines.push('');
 
 	// Category scores
@@ -392,7 +412,7 @@ async function main() {
 			capabilities: {},
 			clientInfo: {
 				name: 'blackveil-dns-action',
-				version: '1.2.0',
+				version: ACTION_VERSION,
 			},
 		}, undefined, apiKey);
 		sessionId = initResult.sessionId;
@@ -402,8 +422,8 @@ async function main() {
 		process.exit(1);
 	}
 
-	// Step 2: Call scan_domain
-	const scanArgs = { domain };
+	// Step 2: Call scan_domain with explicit format for structured result
+	const scanArgs = { domain, format: 'full' };
 	if (profile !== 'auto') {
 		scanArgs.profile = profile;
 	}
@@ -454,6 +474,12 @@ async function main() {
 	}
 	if (result.interactionEffects && result.interactionEffects.length > 0) {
 		setOutput('interaction-effects', JSON.stringify(result.interactionEffects));
+	}
+	if (result.percentileRank != null) {
+		setOutput('percentile-rank', String(result.percentileRank));
+	}
+	if (result.spoofabilityScore != null) {
+		setOutput('spoofability-score', String(result.spoofabilityScore));
 	}
 
 	// Step 5: Write job summary

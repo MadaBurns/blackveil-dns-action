@@ -1,0 +1,11 @@
+name: Repo Hygiene
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  hygiene:
+    uses: MadaBurns/bv-mcp/.github/workflows/repo-hygiene.yml@main

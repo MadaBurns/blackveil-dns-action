@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tgz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+.dev.vars
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cloudflare
+.wrangler/
+worker-configuration.d.ts
+
+# Coverage
+coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Database
+*.sqlite
+*.db

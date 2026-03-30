@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BLOCKED_PATTERNS=( "*.env" "*.env.*" )
+staged=$(git diff --cached --name-only --diff-filter=ACR)
+blocked=""
+for file in $staged; do
+  for pattern in "${BLOCKED_PATTERNS[@]}"; do
+    case "$file" in $pattern*|*/$pattern*) blocked="$blocked\n  $file" ;; esac
+  done
+done
+if [ -n "$blocked" ]; then
+  echo "BLOCKED: Protected paths in staging:"
+  echo -e "$blocked"
+  echo "Bypass with: git commit --no-verify"
+  exit 1
+fi
+
+if command -v gitleaks &>/dev/null; then
+  gitleaks protect --staged --config .gitleaks.toml --no-banner 2>&1 | head -20
+  if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+    echo "Gitleaks found secrets in staged changes."
+    echo "Bypass with: git commit --no-verify"
+    exit 1
+  fi
+fi

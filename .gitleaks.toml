@@ -1,0 +1,19 @@
+title = "blackveil-dns-action secret detection"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "cloudflare-account-id"
+description = "Cloudflare Account ID (32-char hex)"
+regex = '''(?i)(?:account[_\-]?id|CLOUDFLARE_ACCOUNT)\s*[=:]\s*["']?([0-9a-f]{32})["']?'''
+keywords = ["account"]
+
+[allowlist]
+paths = [
+  '''\.gitleaks\.toml$''',
+  '''\.githooks/''',
+  '''node_modules/''',
+  '''package-lock\.json$''',
+  '''dist/''',
+]

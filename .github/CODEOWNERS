@@ -1,0 +1,7 @@
+# Baseline CODEOWNERS for GENERALISED-dns-action
+
+* @GENERALISED-security/engineering
+
+action.yml @GENERALISED-security/devops
+scan.mjs @GENERALISED-security/security-team
+.github/workflows/ @GENERALISED-security/devops

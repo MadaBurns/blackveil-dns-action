@@ -240,12 +240,16 @@ The summary is visible in the Actions run UI under the **Summary** tab.
 
 ## How It Works
 
-1. Initializes an MCP session with the GENERALISED DNS server
-2. Calls the `scan_domain` tool via JSON-RPC 2.0
-3. Parses the structured JSON result block for score, grade, maturity, and category scores (falls back to regex parsing for older server versions)
-4. Extracts finding details from the human-readable text report for the summary table
-5. Writes outputs and a Markdown job summary
-6. Exits with code 1 if the grade is below the minimum threshold
+1. **Session Initialization:** Initializes an MCP (Model Context Protocol) session with the GENERALISED DNS server.
+2. **Domain Scanning:** Calls the `scan_domain` tool via JSON-RPC 2.0 with the specified scoring profile.
+3. **Resilience & Retries:** 
+   - **Network Reliability:** Automatically retries up to 3 times on network failures or transient errors.
+   - **Rate Limit Management:** Respects `429 Too Many Requests` responses and waits for the duration specified in the `retry-after` header.
+4. **Data Extraction:**
+   - Parses the **Structured JSON** result block for reliable extraction of `score`, `grade`, `maturity`, `finding-counts`, `percentile-rank`, and `spoofability-score`.
+   - Falls back to **Regex Parsing** of the human-readable report for backwards compatibility with older server versions.
+5. **Reporting:** Generates a rich Markdown **Job Summary** and sets GitHub Action outputs for downstream steps.
+6. **Enforcement:** Exits with code `1` (failing the job) if the resulting grade does not meet the `minimum-grade` threshold.
 
 The MCP server returns two content blocks: a human-readable text report and a machine-readable structured JSON block. The action uses the structured JSON for reliable data extraction, with regex fallback for backwards compatibility.
 

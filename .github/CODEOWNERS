@@ -1,0 +1,7 @@
+# Baseline CODEOWNERS for blackveil-dns-action
+
+* @blackveil-security/engineering
+
+action.yml @blackveil-security/devops
+scan.mjs @blackveil-security/security-team
+.github/workflows/ @blackveil-security/devops

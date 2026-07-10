@@ -1,0 +1,11 @@
+name: Symlink escape gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  symlink-escape:
+    uses: MadaBurns/bv-mcp/.github/workflows/symlink-escape-gate.yml@main

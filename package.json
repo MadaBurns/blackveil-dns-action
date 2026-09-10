@@ -1,0 +1,15 @@
+{
+  "name": "blackveil-dns-action",
+  "version": "1.4.0",
+  "private": true,
+  "description": "GitHub Action: scan a domain's DNS & email security posture via the Blackveil DNS MCP server and enforce a minimum grade",
+  "type": "module",
+  "license": "BUSL-1.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check scan.mjs && for f in lib/*.mjs test/*.mjs; do node --check \"$f\" || exit 1; done"
+  }
+}

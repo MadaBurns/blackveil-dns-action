@@ -1,501 +1,194 @@
 #!/usr/bin/env node
 
 /**
- * Blackveil DNS Security Scanner — GitHub Action scan script.
+ * Blackveil DNS Security Scanner — GitHub Action entry point.
  *
- * Pure Node.js (no dependencies). Uses the built-in fetch API (Node 18+).
- * Communicates with the Blackveil DNS MCP server via JSON-RPC 2.0.
+ * Pure Node.js (no dependencies). Talks to the Blackveil DNS MCP server over
+ * JSON-RPC 2.0 and enforces a minimum grade. Reporting logic lives in ./lib so
+ * it can be unit-tested without network access.
  */
 
-import { appendFileSync } from 'node:fs';
+import { createMcpClient, McpProtocolError } from './lib/mcp-client.mjs';
+import { parseScanResult } from './lib/parse.mjs';
+import { normalizeMinimumGrade, meetsMinimumGrade } from './lib/grades.mjs';
+import { buildSummaryMarkdown } from './lib/summary.mjs';
+import { pathToFileURL } from 'node:url';
+import { setOutput, writeSummary, logError, logWarning } from './lib/github.mjs';
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+export const ACTION_VERSION = '1.4.0';
+export const USER_AGENT = `blackveil-dns-action/${ACTION_VERSION}`;
+export const REPO_URL = 'https://github.com/MadaBurns/blackveil-dns-action';
+export const DEFAULT_ENDPOINT = 'https://dns-mcp.blackveilsecurity.com/mcp';
 
-const ACTION_VERSION = '1.3.0';
-const USER_AGENT = `blackveil-dns-action/${ACTION_VERSION}`;
+/** Must match the server's ProfileSchema (bv-mcp src/schemas/primitives.ts). */
+export const VALID_PROFILES = Object.freeze([
+	'auto',
+	'mail_enabled',
+	'enterprise_mail',
+	'non_mail',
+	'web_only',
+	'minimal',
+	'authoritative_dns_infra',
+]);
 
-// ---------------------------------------------------------------------------
-// Grade ordering
-// ---------------------------------------------------------------------------
-
-const GRADE_ORDER = ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F'];
-
-function gradeRank(grade) {
-	const index = GRADE_ORDER.indexOf(grade);
-	return index === -1 ? GRADE_ORDER.length : index;
+function parseBoolean(value, fallback) {
+	if (value == null || String(value).trim() === '') return fallback;
+	const v = String(value).trim().toLowerCase();
+	if (['true', '1', 'yes', 'on'].includes(v)) return true;
+	if (['false', '0', 'no', 'off'].includes(v)) return false;
+	throw new Error(`Expected a boolean, got "${value}"`);
 }
 
-function meetsMinimumGrade(actual, minimum) {
-	return gradeRank(actual) <= gradeRank(minimum);
-}
-
-// ---------------------------------------------------------------------------
-// GitHub Actions helpers
-// ---------------------------------------------------------------------------
-
-function setOutput(key, value) {
-	const outputFile = process.env.GITHUB_OUTPUT;
-	if (outputFile) {
-		appendFileSync(outputFile, `${key}=${value}\n`);
-	} else {
-		// Fallback for local testing
-		console.log(`::set-output name=${key}::${value}`);
+/**
+ * Normalise and sanity-check the `domain` input. The server performs the real
+ * validation; this only catches the common copy-paste mistakes (URL, whitespace)
+ * so the error names the input instead of surfacing a server-side rejection.
+ */
+export function normalizeDomain(input) {
+	const domain = String(input ?? '').trim().toLowerCase().replace(/\.$/, '');
+	if (!domain) throw new Error('Missing required input: domain');
+	if (/[\s/:@]/.test(domain) || !domain.includes('.')) {
+		throw new Error(`Invalid domain "${domain}": provide a bare hostname such as example.com (no scheme, path or port)`);
 	}
+	return domain;
 }
 
-function writeSummary(markdown) {
-	const summaryFile = process.env.GITHUB_STEP_SUMMARY;
-	if (summaryFile) {
-		appendFileSync(summaryFile, markdown + '\n');
-	} else {
-		console.log(markdown);
+/** Read and validate all inputs from the environment. Throws on invalid input. */
+export function readInputs(env = process.env) {
+	const domain = normalizeDomain(env.INPUT_DOMAIN);
+	const minimum = normalizeMinimumGrade(env.INPUT_MINIMUM_GRADE);
+	const profile = (env.INPUT_PROFILE || 'auto').toLowerCase().trim();
+	if (!VALID_PROFILES.includes(profile)) {
+		throw new Error(`Invalid profile: "${profile}". Must be one of: ${VALID_PROFILES.join(', ')}`);
 	}
-}
-
-// ---------------------------------------------------------------------------
-// JSON-RPC helpers
-// ---------------------------------------------------------------------------
-
-let rpcIdCounter = 0;
-
-function jsonRpcRequest(method, params) {
+	const endpoint = (env.INPUT_ENDPOINT || DEFAULT_ENDPOINT).trim();
+	if (!/^https:\/\//i.test(endpoint)) {
+		throw new Error(`Invalid endpoint "${endpoint}": must be an https:// URL (the API key is sent as a bearer token)`);
+	}
 	return {
-		jsonrpc: '2.0',
-		id: ++rpcIdCounter,
-		method,
-		...(params !== undefined ? { params } : {}),
+		domain,
+		minimumGrade: minimum.grade,
+		minimumGradeWarning: minimum.warning,
+		profile,
+		apiKey: (env.INPUT_API_KEY || '').trim(),
+		endpoint,
+		forceRefresh: parseBoolean(env.INPUT_FORCE_REFRESH, false),
+		failOnInconclusive: parseBoolean(env.INPUT_FAIL_ON_INCONCLUSIVE, true),
 	};
 }
 
-// ---------------------------------------------------------------------------
-// MCP client
-// ---------------------------------------------------------------------------
-
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 3000;
-
-async function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function mcpRequest(endpoint, method, params, sessionId, apiKey) {
-	const headers = {
-		'Content-Type': 'application/json',
-		Accept: 'application/json',
-		'User-Agent': USER_AGENT,
-	};
-	if (sessionId) {
-		headers['Mcp-Session-Id'] = sessionId;
-	}
-	if (apiKey) {
-		headers['Authorization'] = `Bearer ${apiKey}`;
-	}
-
-	const body = JSON.stringify(jsonRpcRequest(method, params));
-
-	let lastError;
-	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-		if (attempt > 0) {
-			console.log(`Retrying (attempt ${attempt + 1}/${MAX_RETRIES + 1})...`);
-			await sleep(RETRY_DELAY_MS * attempt);
-		}
-
-		try {
-			const response = await fetch(endpoint, {
-				method: 'POST',
-				headers,
-				body,
-			});
-
-			// Rate limited — retry after the suggested delay
-			if (response.status === 429) {
-				const retryAfter = parseInt(response.headers.get('retry-after') || '5', 10);
-				console.log(`Rate limited. Waiting ${retryAfter}s...`);
-				await sleep(retryAfter * 1000);
-				lastError = new Error(`Rate limited (429)`);
-				continue;
-			}
-
-			if (!response.ok) {
-				const text = await response.text().catch(() => '');
-				throw new Error(`HTTP ${response.status} — ${text.slice(0, 300)}`);
-			}
-
-			const newSessionId = response.headers.get('mcp-session-id') || sessionId;
-			const json = await response.json();
-
-			if (json.error) {
-				throw new Error(`JSON-RPC error ${json.error.code}: ${json.error.message}`);
-			}
-
-			return { result: json.result, sessionId: newSessionId };
-		} catch (err) {
-			lastError = err;
-			// Only retry on network/transient errors, not protocol errors
-			if (err.message.includes('JSON-RPC error')) throw err;
-		}
-	}
-
-	throw new Error(`MCP request failed after ${MAX_RETRIES + 1} attempts: ${lastError.message}`);
-}
-
-// ---------------------------------------------------------------------------
-// Result parsing
-// ---------------------------------------------------------------------------
-
 /**
- * Try to extract structured JSON from the MCP content array.
+ * Decide the step outcome for a parsed result.
  *
- * The MCP server (v1.1+) returns a second content block containing
- * machine-readable JSON wrapped in <!-- STRUCTURED_RESULT ... --> delimiters.
- * This is more resilient than regex-parsing the human-readable text report.
+ * @returns {{ passed: boolean, exitCode: number, message: string | null, level: 'error' | 'warning' | null }}
  */
-function tryParseStructuredResult(contentArray) {
-	if (!Array.isArray(contentArray)) return null;
-
-	for (const item of contentArray) {
-		const text = item.text || '';
-		const match = text.match(/<!-- STRUCTURED_RESULT\n([\s\S]*?)\nSTRUCTURED_RESULT -->/);
-		if (match) {
-			try {
-				const data = JSON.parse(match[1]);
-				return {
-					score: data.score,
-					grade: data.grade,
-					maturity: data.maturityLabel || 'Unknown',
-					scoringProfile: data.scoringProfile || 'mail_enabled',
-					categories: Object.entries(data.categoryScores).map(([name, score]) => ({
-						status: score >= 80 ? '\u2713' : score >= 50 ? '\u26A0' : '\u2717',
-						name: name.toUpperCase(),
-						score,
-					})),
-					findings: [], // populated below from text report
-					findingCounts: data.findingCounts,
-					interactionEffects: data.interactionEffects || [],
-					percentileRank: data.percentileRank ?? null,
-					spoofabilityScore: data.spoofabilityScore ?? null,
-					cached: data.cached ?? false,
-					rawText: contentArray.map((c) => c.text || '').join('\n'),
-				};
-			} catch {
-				// Malformed JSON — fall through to regex parsing
-			}
-		}
+export function evaluate(result, inputs) {
+	if (!result.measured) {
+		const reason = result.evidenceNote || result.maturity || 'the scan produced no gradeable evidence';
+		const message = `Domain ${inputs.domain} could not be graded: ${reason}`;
+		return inputs.failOnInconclusive
+			? { passed: false, exitCode: 1, message, level: 'error' }
+			: { passed: false, exitCode: 0, message: `${message} (fail-on-inconclusive is false, not failing the job)`, level: 'warning' };
 	}
-
-	return null;
+	const passed = meetsMinimumGrade(result.grade, inputs.minimumGrade);
+	return passed
+		? { passed: true, exitCode: 0, message: null, level: null }
+		: {
+				passed: false,
+				exitCode: 1,
+				message: `DNS security grade ${result.grade} (${result.score}/100) is below minimum ${inputs.minimumGrade}`,
+				level: 'error',
+			};
 }
 
-/**
- * Parse the scan_domain text result returned by the MCP server using regex.
- *
- * Fallback for servers that don't include the structured JSON block.
- * The server returns a formatted text report (see format-report.ts).
- */
-function parseScanResultFromText(text) {
-	// Overall Score: 82/100 (B+)
-	const scoreMatch = text.match(/Overall Score:\s*(\d+)\/100\s*\(([^)]+)\)/);
-	const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
-	const grade = scoreMatch ? scoreMatch[2].trim() : 'F';
-
-	// Email Security Maturity: Stage 3 — Enforcing
-	const maturityMatch = text.match(/Email Security Maturity:\s*Stage\s*\d+\s*[—–-]\s*(.+)/);
-	const maturity = maturityMatch ? maturityMatch[1].trim() : 'Unknown';
-
-	// Category scores table — matches lines like: ✓ SPF        85/100
-	const categories = [];
-	const categoryPattern = /\s*([✓⚠✗])\s+(\S+)\s+(\d+)\/100/g;
-	let catMatch;
-	while ((catMatch = categoryPattern.exec(text)) !== null) {
-		categories.push({
-			status: catMatch[1],
-			name: catMatch[2],
-			score: parseInt(catMatch[3], 10),
-		});
-	}
-
-	// Findings — matches lines like: [CRITICAL] Some finding title
-	const findings = [];
-	const findingPattern = /\[(\w+)]\s+(.+)/g;
-	let findMatch;
-	while ((findMatch = findingPattern.exec(text)) !== null) {
-		const severity = findMatch[1];
-		const title = findMatch[2].trim();
-		if (severity.toLowerCase() !== 'info') {
-			findings.push({ severity, title });
-		}
-	}
-
-	return { score, grade, maturity, categories, findings, rawText: text };
+export function emitOutputs(result, verdict) {
+	setOutput('score', result.measured ? result.score : '');
+	setOutput('grade', result.measured ? result.grade : '');
+	setOutput('measured', result.measured);
+	setOutput('passed', verdict.passed);
+	setOutput('maturity', result.maturity);
+	setOutput('scoring-profile', result.scoringProfile ?? '');
+	setOutput('finding-counts', result.findingCounts ? JSON.stringify(result.findingCounts) : '');
+	setOutput('interaction-effects', result.interactionEffects.length > 0 ? JSON.stringify(result.interactionEffects) : '');
+	setOutput('percentile-rank', result.percentileRank ?? '');
+	setOutput('spoofability-score', result.spoofabilityScore ?? '');
+	setOutput('report-url', result.reportUrl ?? '');
+	setOutput('cached', result.cached);
 }
-
-/**
- * Parse scan results from MCP content array.
- *
- * Tries structured JSON first (resilient), falls back to regex (legacy).
- * When structured JSON is used, findings are still extracted from the
- * text report since the structured block only carries severity counts.
- */
-function parseScanResult(contentArray) {
-	const rawText = Array.isArray(contentArray)
-		? contentArray.map((c) => c.text || '').join('\n')
-		: String(contentArray);
-
-	// Try structured JSON first
-	const structured = tryParseStructuredResult(contentArray);
-	if (structured) {
-		// Extract finding details from the text report for the summary table
-		const textParsed = parseScanResultFromText(rawText);
-		structured.findings = textParsed.findings;
-		return structured;
-	}
-
-	// Fallback: regex parsing
-	return parseScanResultFromText(rawText);
-}
-
-// ---------------------------------------------------------------------------
-// Summary formatting
-// ---------------------------------------------------------------------------
-
-function gradeEmoji(grade) {
-	if (grade === 'A+' || grade === 'A') return '\u{1F7E2}'; // green circle
-	if (grade === 'B+' || grade === 'B') return '\u{1F7E1}'; // yellow circle
-	if (grade === 'C+' || grade === 'C') return '\u{1F7E0}'; // orange circle
-	return '\u{1F534}'; // red circle
-}
-
-function severityEmoji(severity) {
-	switch (severity.toLowerCase()) {
-		case 'critical':
-			return '\u{1F6D1}'; // stop sign
-		case 'high':
-			return '\u{1F534}'; // red circle
-		case 'medium':
-			return '\u{1F7E0}'; // orange circle
-		case 'low':
-			return '\u{1F7E1}'; // yellow circle
-		default:
-			return '\u{2139}\u{FE0F}'; // info
-	}
-}
-
-function categoryStatusEmoji(status) {
-	if (status === '\u2713') return '\u2705'; // check mark
-	if (status === '\u26A0') return '\u26A0\uFE0F'; // warning
-	return '\u274C'; // cross mark
-}
-
-function buildSummaryMarkdown(result, domain, minimumGrade, passed, profile) {
-	const lines = [];
-
-	lines.push(`## ${gradeEmoji(result.grade)} Blackveil DNS Security Scan: \`${domain}\``);
-	lines.push('');
-	lines.push('| Metric | Value |');
-	lines.push('|--------|-------|');
-	lines.push(`| **Score** | ${result.score}/100 |`);
-	lines.push(`| **Grade** | **${result.grade}** |`);
-	lines.push(`| **Maturity** | ${result.maturity} |`);
-	lines.push(`| **Scoring Profile** | ${result.scoringProfile || profile} |`);
-	lines.push(`| **Minimum Grade** | ${minimumGrade} |`);
-	lines.push(`| **Result** | ${passed ? '\u2705 Passed' : '\u274C Failed'} |`);
-	if (result.findingCounts) {
-		const fc = result.findingCounts;
-		const parts = [];
-		if (fc.critical) parts.push(`${fc.critical} critical`);
-		if (fc.high) parts.push(`${fc.high} high`);
-		if (fc.medium) parts.push(`${fc.medium} medium`);
-		if (fc.low) parts.push(`${fc.low} low`);
-		lines.push(`| **Findings** | ${parts.length > 0 ? parts.join(', ') : 'None'} |`);
-	}
-	if (result.percentileRank != null) {
-		lines.push(`| **Percentile** | Top ${100 - result.percentileRank}% |`);
-	}
-	if (result.spoofabilityScore != null) {
-		lines.push(`| **Spoofability** | ${result.spoofabilityScore}/100 |`);
-	}
-	if (result.cached) {
-		lines.push(`| **Cached** | Yes |`);
-	}
-	lines.push('');
-
-	// Category scores
-	if (result.categories.length > 0) {
-		lines.push('### Category Scores');
-		lines.push('');
-		lines.push('| Category | Score | Status |');
-		lines.push('|----------|-------|--------|');
-		for (const cat of result.categories) {
-			const emoji = categoryStatusEmoji(cat.status);
-			lines.push(`| ${cat.name} | ${cat.score}/100 | ${emoji} |`);
-		}
-		lines.push('');
-	}
-
-	// Top findings
-	if (result.findings.length > 0) {
-		const topFindings = result.findings.slice(0, 10);
-		lines.push('### Top Findings');
-		lines.push('');
-		for (const finding of topFindings) {
-			lines.push(`- ${severityEmoji(finding.severity)} **[${finding.severity}]** ${finding.title}`);
-		}
-		if (result.findings.length > 10) {
-			lines.push(`- _...and ${result.findings.length - 10} more_`);
-		}
-		lines.push('');
-	} else {
-		lines.push('### Findings');
-		lines.push('');
-		lines.push('\u2705 No security issues found.');
-		lines.push('');
-	}
-
-	// Interaction effects (scoring penalties from category interactions)
-	if (result.interactionEffects && result.interactionEffects.length > 0) {
-		lines.push('### Scoring Interactions');
-		lines.push('');
-		for (const effect of result.interactionEffects) {
-			lines.push(`- **[-${effect.penalty}]** ${effect.narrative}`);
-		}
-		lines.push('');
-	}
-
-	lines.push('---');
-	lines.push('_Scanned by [Blackveil DNS Security Scanner](https://github.com/MadaBurns/blackveil-dns-action)_');
-
-	return lines.join('\n');
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
-const VALID_PROFILES = ['auto', 'mail_enabled', 'enterprise_mail', 'non_mail', 'web_only', 'minimal'];
 
 async function main() {
-	const domain = process.env.INPUT_DOMAIN;
-	const minimumGrade = (process.env.INPUT_MINIMUM_GRADE || 'C').toUpperCase().trim();
-	const profile = (process.env.INPUT_PROFILE || 'auto').toLowerCase().trim();
-	const apiKey = process.env.INPUT_API_KEY || '';
-	const endpoint = process.env.INPUT_ENDPOINT || 'https://dns-mcp.blackveilsecurity.com/mcp';
-
-	if (!domain) {
-		console.error('::error::Missing required input: domain');
-		process.exit(1);
-	}
-
-	// Validate minimum grade
-	if (!GRADE_ORDER.includes(minimumGrade)) {
-		console.error(`::error::Invalid minimum-grade: "${minimumGrade}". Must be one of: ${GRADE_ORDER.join(', ')}`);
-		process.exit(1);
-	}
-
-	// Validate profile
-	if (!VALID_PROFILES.includes(profile)) {
-		console.error(`::error::Invalid profile: "${profile}". Must be one of: ${VALID_PROFILES.join(', ')}`);
-		process.exit(1);
-	}
-
-	console.log(`Scanning ${domain} via ${endpoint} ...`);
-	console.log(`Minimum grade: ${minimumGrade}`);
-	if (profile !== 'auto') console.log(`Scoring profile: ${profile}`);
-	if (apiKey) console.log('Using authenticated access');
-
-	// Step 1: Initialize MCP session
-	let sessionId;
+	let inputs;
 	try {
-		const initResult = await mcpRequest(endpoint, 'initialize', {
-			protocolVersion: '2025-03-26',
-			capabilities: {},
-			clientInfo: {
-				name: 'blackveil-dns-action',
-				version: ACTION_VERSION,
-			},
-		}, undefined, apiKey);
-		sessionId = initResult.sessionId;
-		console.log('MCP session initialized');
+		inputs = readInputs();
 	} catch (err) {
-		console.error(`::error::Failed to initialize MCP session: ${err.message}`);
-		process.exit(1);
+		logError(err.message);
+		return 1;
 	}
+	if (inputs.minimumGradeWarning) logWarning(inputs.minimumGradeWarning);
 
-	// Step 2: Call scan_domain with explicit format for structured result
-	const scanArgs = { domain, format: 'full' };
-	if (profile !== 'auto') {
-		scanArgs.profile = profile;
-	}
+	console.log(`Scanning ${inputs.domain} via ${inputs.endpoint} ...`);
+	console.log(`Minimum grade: ${inputs.minimumGrade}`);
+	if (inputs.profile !== 'auto') console.log(`Scoring profile: ${inputs.profile}`);
+	if (inputs.forceRefresh) console.log('Bypassing the server-side scan cache');
+	if (inputs.apiKey) console.log('Using authenticated access');
 
-	let scanContent;
+	const client = createMcpClient({
+		endpoint: inputs.endpoint,
+		apiKey: inputs.apiKey,
+		userAgent: USER_AGENT,
+		log: (msg) => console.log(msg),
+	});
+
+	let toolResult;
 	try {
-		const scanResult = await mcpRequest(
-			endpoint,
-			'tools/call',
-			{
-				name: 'scan_domain',
-				arguments: scanArgs,
-			},
-			sessionId,
-			apiKey,
-		);
+		const { serverInfo, protocolVersion } = await client.initialize({ name: 'blackveil-dns-action', version: ACTION_VERSION });
+		console.log(`MCP session initialized (server ${serverInfo?.name ?? 'unknown'} ${serverInfo?.version ?? ''}, protocol ${protocolVersion})`);
 
-		// The result contains content array with text items
-		scanContent = scanResult.result?.content;
-		if (!scanContent || !Array.isArray(scanContent) || scanContent.length === 0) {
-			throw new Error('Empty response from scan_domain');
-		}
+		const args = { domain: inputs.domain, format: 'full' };
+		if (inputs.profile !== 'auto') args.profile = inputs.profile;
+		if (inputs.forceRefresh) args.force_refresh = true;
 
-		if (scanResult.result?.isError) {
-			const errorText = scanContent.map((item) => item.text || '').join('\n');
-			throw new Error(`scan_domain returned error: ${errorText}`);
-		}
+		toolResult = await client.callTool('scan_domain', args);
 	} catch (err) {
-		console.error(`::error::Failed to scan domain: ${err.message}`);
-		process.exit(1);
+		const prefix = err instanceof McpProtocolError ? 'Scan rejected' : 'Scan failed';
+		logError(`${prefix}: ${err.message}`);
+		return 1;
 	}
 
-	// Step 3: Parse results (tries structured JSON first, falls back to regex)
-	const result = parseScanResult(scanContent);
-	const passed = meetsMinimumGrade(result.grade, minimumGrade);
+	const result = parseScanResult(toolResult);
+	const verdict = evaluate(result, inputs);
 
-	console.log(`\nScan complete: ${result.grade} (${result.score}/100) — Maturity: ${result.maturity} — Profile: ${result.scoringProfile || profile}`);
-	console.log(`Minimum grade: ${minimumGrade} — ${passed ? 'PASSED' : 'FAILED'}`);
+	const scoreText = result.measured ? `${result.grade} (${result.score}/100)` : 'not measured';
+	console.log(`\nScan complete: ${scoreText} — Maturity: ${result.maturity} — Profile: ${result.scoringProfile ?? inputs.profile} — Source: ${result.source}`);
+	console.log(`Minimum grade: ${inputs.minimumGrade} — ${verdict.passed ? 'PASSED' : result.measured ? 'FAILED' : 'INCONCLUSIVE'}`);
 
-	// Step 4: Set outputs
-	setOutput('score', String(result.score));
-	setOutput('grade', result.grade);
-	setOutput('maturity', result.maturity);
-	setOutput('passed', String(passed));
-	setOutput('scoring-profile', result.scoringProfile || profile);
-	if (result.findingCounts) {
-		setOutput('finding-counts', JSON.stringify(result.findingCounts));
-	}
-	if (result.interactionEffects && result.interactionEffects.length > 0) {
-		setOutput('interaction-effects', JSON.stringify(result.interactionEffects));
-	}
-	if (result.percentileRank != null) {
-		setOutput('percentile-rank', String(result.percentileRank));
-	}
-	if (result.spoofabilityScore != null) {
-		setOutput('spoofability-score', String(result.spoofabilityScore));
-	}
+	emitOutputs(result, verdict);
+	writeSummary(
+		buildSummaryMarkdown(result, {
+			domain: inputs.domain,
+			minimumGrade: inputs.minimumGrade,
+			passed: verdict.passed,
+			requestedProfile: inputs.profile,
+			repoUrl: REPO_URL,
+		}),
+	);
 
-	// Step 5: Write job summary
-	const summaryMd = buildSummaryMarkdown(result, domain, minimumGrade, passed, profile);
-	writeSummary(summaryMd);
-
-	// Step 6: Exit with appropriate code
-	if (!passed) {
-		console.error(`\n::error::DNS security grade ${result.grade} is below minimum ${minimumGrade}`);
-		process.exit(1);
+	if (verdict.message) {
+		if (verdict.level === 'error') logError(verdict.message);
+		else logWarning(verdict.message);
 	}
-
-	console.log('\nDNS security check passed.');
+	if (verdict.exitCode === 0 && verdict.passed) console.log('\nDNS security check passed.');
+	return verdict.exitCode;
 }
 
-main().catch((err) => {
-	console.error(`::error::Unexpected error: ${err.message}`);
-	process.exit(1);
-});
+// Only run when executed directly (so tests can import the helpers above).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+	main()
+		.then((code) => {
+			process.exitCode = code;
+		})
+		.catch((err) => {
+			logError(`Unexpected error: ${err?.stack ?? err}`);
+			process.exitCode = 1;
+		});
+}

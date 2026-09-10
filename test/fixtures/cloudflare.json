@@ -1,0 +1,355 @@
+{
+	"content": [
+		{
+			"type": "text",
+			"text": "DNS Security Scan: cloudflare.com\n========================================\nOverall Score: 95/100 (A+)\n1 high-severity issue(s) found. Grade: A+\n\nEmail Security Maturity: Stage 4 — Hardened\nComprehensive email and DNS security posture with defense in depth.\n\nScoring Profile: mail_enabled (MX present, DKIM present, BIMI present, DMARC enforcing, SSL valid, CAA present)\n\nCategory Scores:\n------------------------------\n  ✓ SPF        85/100\n  ✓ DMARC      90/100\n  ⚠ DKIM       70/100\n  ✓ DNSSEC     100/100\n  ✓ SSL        95/100\n  ⚠ MTA_STS    75/100\n  ✓ NS         95/100\n  ✓ CAA        100/100\n  ✓ BIMI       95/100\n  ✓ TLSRPT     100/100\n  ✓ SUBDOMAIN_TAKEOVER 100/100\n  ⚠ HTTP_SECURITY 70/100\n  ✓ DANE       80/100\n  ✓ MX         100/100\n  ✓ DANE_HTTPS 95/100\n  ✓ SVCB_HTTPS 100/100\n  ✓ SUBDOMAILING 100/100\n  ✓ DNSKEY_STRENGTH 100/100\n  ✓ PTR        100/100\n\nFindings:\n------------------------------\n  [MEDIUM] TXT RRset exceeds UDP limit\n    The combined TXT RRset for cloudflare.com is ~2438 bytes, which exceeds the 512-byte UDP limit and requires TCP fallback. Legacy resolvers and restrictive middleboxes that do not retry over TCP may only see the first ~512 bytes, silently...\n    Confidence: deterministic\n    Potential Impact: Some receivers may not see the full SPF record, producing inconsistent authentication results.\n    Adverse Consequences: Mail can fail authentication at a subset of receivers in a way that is hard to reproduce or diagnose.\n  [LOW] No forensic reporting configured (ruf= absent)\n    Aggregate reporting (rua=) is configured but forensic reporting (ruf=) is not. Forensic reports provide detailed failure information useful for troubleshooting.\n    Confidence: deterministic\n    Potential Impact: There is no visibility into authentication results or spoofing attempts against the domain.\n    Adverse Consequences: Tightening the policy becomes risky because legitimate senders cannot be identified first, and abuse of the domain goes unnoticed.\n  [LOW] Relaxed DKIM alignment\n    DKIM alignment mode is relaxed (adkim=r or unset). Consider adkim=s (strict) for stronger authentication.\n    Confidence: deterministic\n    Potential Impact: Alignment is looser or reporting is less complete than the strictest posture.\n    Adverse Consequences: Borderline spoofing techniques may pass alignment and some diagnostic detail is unavailable.\n  [MEDIUM] Legacy RSA key: smtpapi\n    DKIM RSA key for \"smtpapi\" is legacy (1024 bits). RFC 8301 §3.2 requires at least 1024-bit RSA and recommends at least 2048 bits. Plan an upgrade to 2048-bit RSA or Ed25519 where supported; if your mail provider manages this key, ask abo...\n    Confidence: deterministic\n    Potential Impact: The authenticity guarantee DKIM provides for this selector is weaker than intended.\n    Adverse Consequences: A forged but validly-signed message would pass DKIM and DMARC, making impersonation highly credible.\n  [MEDIUM] Missing DKIM version tag: smtpapi\n    DKIM selector \"smtpapi\" is missing the v= tag. Should be set to v=DKIM1.\n    Confidence: deterministic\n    Potential Impact: Signature verification for this selector is unreliable across receivers.\n    Adverse Consequences: Legitimate signed mail may fail DKIM at some receivers with no consistent pattern.\n  [LOW] HSTS max-age too short\n    HSTS max-age is 15780000 seconds (183 days). Recommended minimum is 31536000 (1 year).\n    Confidence: deterministic\n    Potential Impact: Partial HSTS coverage leaves windows where transport security guarantees are weaker than expected.\n    Adverse Consequences: Subdomains or returning sessions may still face avoidable downgrade exposure and policy non-compliance findings.\n  [HIGH] MTA-STS policy file not accessible\n    MTA-STS policy file at https://mta-sts.cloudflare.com/.well-known/mta-sts.txt returned HTTP 530. The policy file must be accessible over HTTPS.\n    Confidence: deterministic\n    Potential Impact: Inbound mail is not protected against TLS downgrade despite MTA-STS appearing to be configured.\n    Adverse Consequences: Message content can be intercepted on a downgraded connection while the domain believes STS is enforcing.\n  [LOW] Low nameserver diversity\n    All nameservers are under cloudflare.com. Cloudflare's anycast network provides built-in geographic redundancy, so this is lower risk than single-provider setups on traditional DNS hosts. For maximum independence, a secondary DNS provide...\n    Confidence: deterministic\n    Potential Impact: DNS resilience and consistency are reduced, increasing partial or full resolution outage risk.\n    Adverse Consequences: Availability incidents can affect websites, APIs, and transactional workflows.\n  [LOW] BIMI logo exceeds 32 KB\n    BIMI logo exceeds 32 KB. The BIMI specification recommends logos be under 32 KB for reliable display in email clients.\n    Confidence: deterministic\n    Potential Impact: BIMI works but is not at its most complete configuration.\n    Adverse Consequences: Minor reduction in display coverage across providers. Note that BIMI is a brand-presentation control: there is no controlled evidence that it reduces phishing susceptibility, and a verified logo renders on any message that passes DMARC for the domain — including mail sent from a compromised mailbox. Weigh the mark-certificate cost against that, and keep BIMI as a brand-presentation investment rather than an anti-phishing one.\n  [MEDIUM] CSP allows unsafe-inline scripts\n    Content-Security-Policy contains 'unsafe-inline' in the script source, which undermines XSS protection. Use nonces or hashes instead.\n    Confidence: deterministic\n    Potential Impact: This issue weakens defenses and compounds risk when paired with other gaps.\n    Adverse Consequences: Over time it can degrade reliability, security assurance, and compliance posture.\n  [MEDIUM] CSP allows unsafe-eval\n    Content-Security-Policy contains 'unsafe-eval' in the script source, allowing dynamic code execution. This weakens XSS protection.\n    Confidence: deterministic\n    Potential Impact: This issue weakens defenses and compounds risk when paired with other gaps.\n    Adverse Consequences: Over time it can degrade reliability, security assurance, and compliance posture.\n  [LOW] DANE TLSA configured for _25._tcp.mxa-canary.global.inbound.cf-emailsecurity.net\n    11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxa-canary.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detecte...\n    Confidence: deterministic\n    Potential Impact: DANE protection is effective but not at its strongest, widely-interoperable configuration.\n    Adverse Consequences: Minor reduction in the robustness of certificate pinning.\n  [LOW] DANE TLSA configured for _25._tcp.mxb-canary.global.inbound.cf-emailsecurity.net\n    2 DANE TLSA records present and syntactically well-formed for _25._tcp.mxb-canary.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected...\n    Confidence: deterministic\n    Potential Impact: DANE protection is effective but not at its strongest, widely-interoperable configuration.\n    Adverse Consequences: Minor reduction in the robustness of certificate pinning.\n  [LOW] DANE TLSA configured for _25._tcp.mxa.global.inbound.cf-emailsecurity.net\n    11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxa.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here....\n    Confidence: deterministic\n    Potential Impact: DANE protection is effective but not at its strongest, widely-interoperable configuration.\n    Adverse Consequences: Minor reduction in the robustness of certificate pinning.\n  [LOW] DANE TLSA configured for _25._tcp.mxb.global.inbound.cf-emailsecurity.net\n    11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxb.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here....\n    Confidence: deterministic\n    Potential Impact: DANE protection is effective but not at its strongest, widely-interoperable configuration.\n    Adverse Consequences: Minor reduction in the robustness of certificate pinning.\n  [LOW] No DANE TLSA for HTTPS\n    No TLSA record found at _443._tcp.cloudflare.com. DANE can pin web server certificates to DNS, providing an additional layer of trust beyond the CA system. Implement DANE-EE (usage 3) with DNSSEC enabled for maximum security.\n    Confidence: deterministic\n    Potential Impact: HTTPS certificate pinning via DANE is absent or misconfigured, leaving TLS trust dependent solely on the CA system.\n    Adverse Consequences: A rogue or compromised CA can issue a fraudulent certificate, enabling undetected MITM attacks.\n\nScan completed: 2026-09-10T00:31:57.511Z\nScoring model: v1.25.0 (scoring policy) | dns-checks package: v1.37.0 (engine code)"
+		},
+		{
+			"type": "text",
+			"text": "<!-- STRUCTURED_RESULT\n{\"domain\":\"cloudflare.com\",\"score\":95,\"grade\":\"A+\",\"passed\":true,\"measured\":true,\"maturityStage\":4,\"maturityLabel\":\"Hardened\",\"categoryScores\":{\"spf\":85,\"dmarc\":90,\"dkim\":70,\"dnssec\":100,\"ssl\":95,\"mta_sts\":75,\"ns\":95,\"caa\":100,\"bimi\":95,\"tlsrpt\":100,\"subdomain_takeover\":100,\"http_security\":70,\"dane\":80,\"mx\":100,\"dane_https\":95,\"svcb_https\":100,\"subdomailing\":100,\"dnskey_strength\":100,\"ptr\":100},\"findingCounts\":{\"critical\":0,\"high\":1,\"medium\":5,\"low\":10},\"findings\":[{\"category\":\"spf\",\"title\":\"TXT RRset exceeds UDP limit\",\"severity\":\"medium\",\"detail\":\"The combined TXT RRset for cloudflare.com is ~2438 bytes, which exceeds the 512-byte UDP limit and requires TCP fallback. Legacy resolvers and restrictive middleboxes that do not retry over TCP may only see the first ~512 bytes, silently breaking SPF for some receiving MTAs. RFC 7208 §3.4 advises keeping the SPF record and surrounding TXT RRset small enough to fit a single UDP packet.\"},{\"category\":\"spf\",\"title\":\"SPF delegates to shared platform: Google Workspace\",\"severity\":\"info\",\"detail\":\"SPF include:_spf.google.com authorizes Google Workspace. Any Google Workspace customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak.\"},{\"category\":\"spf\",\"title\":\"SPF delegates to shared sending platform (unrecognized): spf1.mcsv.net\",\"severity\":\"info\",\"detail\":\"SPF include:spf1.mcsv.net delegates sending to an external multi-tenant-style platform that is not in the recognized ESP catalog. It still widens your trust surface even though the specific provider is not named. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak.\"},{\"category\":\"spf\",\"title\":\"SPF delegates to shared platform: Mailchimp/Mandrill\",\"severity\":\"info\",\"detail\":\"SPF include:spf.mandrillapp.com authorizes Mailchimp/Mandrill. Any Mailchimp customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak.\"},{\"category\":\"spf\",\"title\":\"SPF delegates to shared platform: Zendesk\",\"severity\":\"info\",\"detail\":\"SPF include:mail.zendesk.com authorizes Zendesk. Any Zendesk customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak.\"},{\"category\":\"spf\",\"title\":\"SPF delegates to shared platform: Postmark\",\"severity\":\"info\",\"detail\":\"SPF include:stspg-customer.com authorizes Postmark. Any Postmark customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak.\"},{\"category\":\"spf\",\"title\":\"SPF delegates to shared platform: Salesforce\",\"severity\":\"info\",\"detail\":\"SPF include:_spf.salesforce.com authorizes Salesforce. Any Salesforce customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak.\"},{\"category\":\"spf\",\"title\":\"SPF trust surface: 6 shared platforms\",\"severity\":\"info\",\"detail\":\"SPF record delegates sending authority to 6 multi-tenant platforms (Google Workspace, spf1.mcsv.net (unrecognized), Mailchimp/Mandrill, Zendesk, Postmark, Salesforce). Audit each include to confirm it is still needed, configure provider-specific DKIM, and keep DMARC enforcement and alignment strong across every authorized sender.\"},{\"category\":\"dmarc\",\"title\":\"No forensic reporting configured (ruf= absent)\",\"severity\":\"low\",\"detail\":\"Aggregate reporting (rua=) is configured but forensic reporting (ruf=) is not. Forensic reports provide detailed failure information useful for troubleshooting.\"},{\"category\":\"dmarc\",\"title\":\"Relaxed DKIM alignment\",\"severity\":\"low\",\"detail\":\"DKIM alignment mode is relaxed (adkim=r or unset). Consider adkim=s (strict) for stronger authentication.\"},{\"category\":\"dmarc\",\"title\":\"Relaxed SPF alignment\",\"severity\":\"info\",\"detail\":\"SPF alignment mode is relaxed (aspf=r or unset). Strict alignment (aspf=s) only strengthens DMARC when every authorized sender's return-path (envelope-from) domain exactly matches the From domain — untrue for most ESP-relayed mail (e.g. Resend, SendGrid, Mailchimp, SES with a custom MAIL FROM), where the return-path sits on a subdomain: wherever the From domain differs from it (typically the apex), aspf=s fails SPF alignment for that traffic and leaves DKIM as the only authentication leg. Mail whose From address stays on that same subdomain still aligns under aspf=s. Set aspf=s only after DMARC aggregate reports confirm every sender's return-path domain exactly matches the From domain; otherwise aspf=r is the correct setting.\"},{\"category\":\"dmarc\",\"title\":\"DMARC properly configured\",\"severity\":\"info\",\"detail\":\"DMARC record found with policy \\\"reject\\\" and valid core tags.\"},{\"category\":\"dkim\",\"title\":\"Missing DKIM version tag: k1\",\"severity\":\"info\",\"detail\":\"DKIM selector \\\"k1\\\" is CNAME-delegated to Mailchimp and the upstream record omits the v=DKIM1 tag. This is RFC 6376 §3.6.1-tolerated; only Mailchimp can change it.\"},{\"category\":\"dkim\",\"title\":\"Missing DKIM version tag: s1\",\"severity\":\"info\",\"detail\":\"DKIM selector \\\"s1\\\" is CNAME-delegated to SendGrid and the upstream record omits the v=DKIM1 tag. This is RFC 6376 §3.6.1-tolerated; only SendGrid can change it.\"},{\"category\":\"dkim\",\"title\":\"Legacy RSA key: smtpapi\",\"severity\":\"medium\",\"detail\":\"DKIM RSA key for \\\"smtpapi\\\" is legacy (1024 bits). RFC 8301 §3.2 requires at least 1024-bit RSA and recommends at least 2048 bits. Plan an upgrade to 2048-bit RSA or Ed25519 where supported; if your mail provider manages this key, ask about its supported key sizes.\"},{\"category\":\"dkim\",\"title\":\"Missing DKIM version tag: smtpapi\",\"severity\":\"medium\",\"detail\":\"DKIM selector \\\"smtpapi\\\" is missing the v= tag. Should be set to v=DKIM1.\"},{\"category\":\"dkim\",\"title\":\"Similar DKIM key-strength findings consolidated\",\"severity\":\"info\",\"detail\":\"Consolidated 2 duplicate selector-probe key-strength finding(s) to reduce repeated penalty for identical key profiles across selectors.\"},{\"category\":\"dnssec\",\"title\":\"Modern DNSSEC algorithm (ECDSA P-256)\",\"severity\":\"info\",\"detail\":\"cloudflare.com uses DNSKEY algorithm 13 (ECDSA P-256), which is a modern and secure choice.\"},{\"category\":\"ssl\",\"title\":\"HSTS max-age too short\",\"severity\":\"low\",\"detail\":\"HSTS max-age is 15780000 seconds (183 days). Recommended minimum is 31536000 (1 year).\"},{\"category\":\"mta_sts\",\"title\":\"MTA-STS policy file not accessible\",\"severity\":\"high\",\"detail\":\"MTA-STS policy file at https://mta-sts.cloudflare.com/.well-known/mta-sts.txt returned HTTP 530. The policy file must be accessible over HTTPS.\"},{\"category\":\"ns\",\"title\":\"Low nameserver diversity\",\"severity\":\"low\",\"detail\":\"All nameservers are under cloudflare.com. Cloudflare's anycast network provides built-in geographic redundancy, so this is lower risk than single-provider setups on traditional DNS hosts. For maximum independence, a secondary DNS provider can be added.\"},{\"category\":\"caa\",\"title\":\"CAA properly configured\",\"severity\":\"info\",\"detail\":\"CAA records found with issue, issuewild, and iodef tags configured.\"},{\"category\":\"caa\",\"title\":\"CAA policy is DNSSEC-protected\",\"severity\":\"info\",\"detail\":\"The CAA RRset at cloudflare.com was returned DNSSEC-authenticated. Under CA/Browser Forum TLS BR §4.2.2 subsection 1.3 (in force 2026-03-15) CAs must validate CAA lookups with DNSSEC to the root and must not treat validation errors as permission to issue, so this policy is cryptographically enforceable rather than advisory — it cannot be stripped in transit to unlock issuance.\"},{\"category\":\"bimi\",\"title\":\"BIMI authority evidence present\",\"severity\":\"info\",\"detail\":\"BIMI record includes a mark certificate reference (a= authority evidence): https://www.cloudflare.com/cloudflare_1171114652.pem. The certificate type is not determined from the URL alone.\"},{\"category\":\"bimi\",\"title\":\"BIMI logo exceeds 32 KB\",\"severity\":\"low\",\"detail\":\"BIMI logo exceeds 32 KB. The BIMI specification recommends logos be under 32 KB for reliable display in email clients.\"},{\"category\":\"tlsrpt\",\"title\":\"TLS-RPT record configured\",\"severity\":\"info\",\"detail\":\"TLS-RPT record found and configured at _smtp._tls.cloudflare.com: v=TLSRPTv1; rua=mailto:rua@cloudflare.com;\"},{\"category\":\"subdomain_takeover\",\"title\":\"No dangling CNAME records found\",\"severity\":\"info\",\"detail\":\"No subdomain takeover vectors detected for cloudflare.com among known/active subdomains.\"},{\"category\":\"http_security\",\"title\":\"CSP allows unsafe-inline scripts\",\"severity\":\"medium\",\"detail\":\"Content-Security-Policy contains 'unsafe-inline' in the script source, which undermines XSS protection. Use nonces or hashes instead.\"},{\"category\":\"http_security\",\"title\":\"CSP allows unsafe-eval\",\"severity\":\"medium\",\"detail\":\"Content-Security-Policy contains 'unsafe-eval' in the script source, allowing dynamic code execution. This weakens XSS protection.\"},{\"category\":\"http_security\",\"title\":\"No COEP header\",\"severity\":\"info\",\"detail\":\"No Cross-Origin-Embedder-Policy header found. COEP, combined with COOP, enables cross-origin isolation and mitigates Spectre-class side-channel attacks.\"},{\"category\":\"http_security\",\"title\":\"HTTP origin attributed to Cloudflare CDN (heuristic)\",\"severity\":\"info\",\"detail\":\"Cloudflare CDN inferred from the origin ASN (AS13335) of the resolved A-record IP via team-cymru. Header-based CDN detection was inconclusive — this CDN does not emit a vendor-specific response header, and the scanner runs inside a Cloudflare Worker, which rewrites server: cloudflare on every outbound response.\"},{\"category\":\"dane\",\"title\":\"DANE TLSA configured for _25._tcp.mxa-canary.global.inbound.cf-emailsecurity.net\",\"severity\":\"low\",\"detail\":\"11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxa-canary.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here. Authentication succeeds while any one association still matches, so a single superseded record during a rollover is not itself fatal; where the RRset is DNSSEC-authenticated and none match, DANE-validating clients reject the connection. Confirm each pin matches the live certificate after every certificate rotation.\"},{\"category\":\"dane\",\"title\":\"DANE TLSA configured for _25._tcp.mxb-canary.global.inbound.cf-emailsecurity.net\",\"severity\":\"low\",\"detail\":\"2 DANE TLSA records present and syntactically well-formed for _25._tcp.mxb-canary.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here. Authentication succeeds while any one association still matches, so a single superseded record during a rollover is not itself fatal; where the RRset is DNSSEC-authenticated and none match, DANE-validating clients reject the connection. Confirm each pin matches the live certificate after every certificate rotation.\"},{\"category\":\"dane\",\"title\":\"DANE TLSA configured for _25._tcp.mxa.global.inbound.cf-emailsecurity.net\",\"severity\":\"low\",\"detail\":\"11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxa.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here. Authentication succeeds while any one association still matches, so a single superseded record during a rollover is not itself fatal; where the RRset is DNSSEC-authenticated and none match, DANE-validating clients reject the connection. Confirm each pin matches the live certificate after every certificate rotation.\"},{\"category\":\"dane\",\"title\":\"DANE TLSA configured for _25._tcp.mxb.global.inbound.cf-emailsecurity.net\",\"severity\":\"low\",\"detail\":\"11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxb.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here. Authentication succeeds while any one association still matches, so a single superseded record during a rollover is not itself fatal; where the RRset is DNSSEC-authenticated and none match, DANE-validating clients reject the connection. Confirm each pin matches the live certificate after every certificate rotation.\"},{\"category\":\"mx\",\"title\":\"MX records found\",\"severity\":\"info\",\"detail\":\"4 mail exchange record(s) present.\"},{\"category\":\"dane_https\",\"title\":\"No DANE TLSA for HTTPS\",\"severity\":\"low\",\"detail\":\"No TLSA record found at _443._tcp.cloudflare.com. DANE can pin web server certificates to DNS, providing an additional layer of trust beyond the CA system. Implement DANE-EE (usage 3) with DNSSEC enabled for maximum security.\"},{\"category\":\"svcb_https\",\"title\":\"HTTPS record configured\",\"severity\":\"info\",\"detail\":\"HTTPS record found at cloudflare.com (priority 1): ALPN= h3, h2 .\"},{\"category\":\"svcb_https\",\"title\":\"HTTP/3 (QUIC) advertised via HTTPS record\",\"severity\":\"info\",\"detail\":\"HTTPS record at cloudflare.com advertises HTTP/3 (h3) ALPN, enabling QUIC-based transport. This provides improved performance and resilience, especially on lossy networks.\"},{\"category\":\"subdomailing\",\"title\":\"No SubdoMailing risk detected\",\"severity\":\"info\",\"detail\":\"Analyzed 6 SPF include/redirect domain(s) for cloudflare.com. All resolve correctly with no takeover indicators.\"},{\"category\":\"dnskey_strength\",\"title\":\"Modern DNSKEY algorithm (ECDSA P-256)\",\"severity\":\"info\",\"detail\":\"cloudflare.com signs with DNSKEY algorithm 13 (ECDSA P-256), a modern and recommended choice.\"},{\"category\":\"ptr\",\"title\":\"No reverse DNS (PTR) for mail servers\",\"severity\":\"info\",\"detail\":\"None of the 4 mail-server IP(s) have a PTR record. mxa-canary.global.inbound.cf-emailsecurity.net (172.65.169.99): no PTR record; mxb-canary.global.inbound.cf-emailsecurity.net (172.65.65.66): no PTR record; mxa.global.inbound.cf-emailsecurity.net (172.65.64.137): no PTR record; mxb.global.inbound.cf-emailsecurity.net (172.65.64.137): no PTR record\"}],\"scoringProfile\":\"mail_enabled\",\"scoringSignals\":[\"MX present\",\"DKIM present\",\"BIMI present\",\"DMARC enforcing\",\"SSL valid\",\"CAA present\"],\"scoringNote\":null,\"adaptiveWeightDeltas\":null,\"percentileRank\":null,\"spoofabilityScore\":null,\"interactionEffects\":[],\"checkStatuses\":{\"spf\":\"completed\",\"dmarc\":\"completed\",\"dkim\":\"completed\",\"dnssec\":\"completed\",\"ssl\":\"completed\",\"mta_sts\":\"completed\",\"ns\":\"completed\",\"caa\":\"completed\",\"bimi\":\"completed\",\"tlsrpt\":\"completed\",\"subdomain_takeover\":\"completed\",\"http_security\":\"completed\",\"dane\":\"completed\",\"mx\":\"completed\",\"dane_https\":\"completed\",\"svcb_https\":\"completed\",\"subdomailing\":\"completed\",\"dnskey_strength\":\"completed\",\"ptr\":\"completed\"},\"dnssecSource\":\"domain_configured\",\"cdnProvider\":\"Cloudflare\",\"notApplicableCategories\":[],\"inconclusiveCategories\":[],\"evidence\":{\"attempted\":19,\"completed\":19,\"ratio\":1},\"evidenceInsufficient\":false,\"evidenceNote\":null,\"timestamp\":\"2026-09-10T00:31:57.511Z\",\"cached\":false,\"scoringModelVersion\":\"1.25.0\",\"dnsChecksPackageVersion\":\"1.37.0\",\"scoringConfigHash\":\"a89c66e7\"}\nSTRUCTURED_RESULT -->"
+		}
+	],
+	"structuredContent": {
+		"domain": "cloudflare.com",
+		"score": 95,
+		"grade": "A+",
+		"passed": true,
+		"measured": true,
+		"maturityStage": 4,
+		"maturityLabel": "Hardened",
+		"categoryScores": {
+			"spf": 85,
+			"dmarc": 90,
+			"dkim": 70,
+			"dnssec": 100,
+			"ssl": 95,
+			"mta_sts": 75,
+			"ns": 95,
+			"caa": 100,
+			"bimi": 95,
+			"tlsrpt": 100,
+			"subdomain_takeover": 100,
+			"http_security": 70,
+			"dane": 80,
+			"mx": 100,
+			"dane_https": 95,
+			"svcb_https": 100,
+			"subdomailing": 100,
+			"dnskey_strength": 100,
+			"ptr": 100
+		},
+		"findingCounts": {
+			"critical": 0,
+			"high": 1,
+			"medium": 5,
+			"low": 10
+		},
+		"findings": [
+			{
+				"category": "spf",
+				"title": "TXT RRset exceeds UDP limit",
+				"severity": "medium",
+				"detail": "The combined TXT RRset for cloudflare.com is ~2438 bytes, which exceeds the 512-byte UDP limit and requires TCP fallback. Legacy resolvers and restrictive middleboxes that do not retry over TCP may only see the first ~512 bytes, silently breaking SPF for some receiving MTAs. RFC 7208 §3.4 advises keeping the SPF record and surrounding TXT RRset small enough to fit a single UDP packet."
+			},
+			{
+				"category": "spf",
+				"title": "SPF delegates to shared platform: Google Workspace",
+				"severity": "info",
+				"detail": "SPF include:_spf.google.com authorizes Google Workspace. Any Google Workspace customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak."
+			},
+			{
+				"category": "spf",
+				"title": "SPF delegates to shared sending platform (unrecognized): spf1.mcsv.net",
+				"severity": "info",
+				"detail": "SPF include:spf1.mcsv.net delegates sending to an external multi-tenant-style platform that is not in the recognized ESP catalog. It still widens your trust surface even though the specific provider is not named. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak."
+			},
+			{
+				"category": "spf",
+				"title": "SPF delegates to shared platform: Mailchimp/Mandrill",
+				"severity": "info",
+				"detail": "SPF include:spf.mandrillapp.com authorizes Mailchimp/Mandrill. Any Mailchimp customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak."
+			},
+			{
+				"category": "spf",
+				"title": "SPF delegates to shared platform: Zendesk",
+				"severity": "info",
+				"detail": "SPF include:mail.zendesk.com authorizes Zendesk. Any Zendesk customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak."
+			},
+			{
+				"category": "spf",
+				"title": "SPF delegates to shared platform: Postmark",
+				"severity": "info",
+				"detail": "SPF include:stspg-customer.com authorizes Postmark. Any Postmark customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak."
+			},
+			{
+				"category": "spf",
+				"title": "SPF delegates to shared platform: Salesforce",
+				"severity": "info",
+				"detail": "SPF include:_spf.salesforce.com authorizes Salesforce. Any Salesforce customer can send as your domain. This is common and not inherently a misconfiguration, but it expands the sending infrastructure you rely on. The risk becomes more material when DMARC enforcement and alignment are weak."
+			},
+			{
+				"category": "spf",
+				"title": "SPF trust surface: 6 shared platforms",
+				"severity": "info",
+				"detail": "SPF record delegates sending authority to 6 multi-tenant platforms (Google Workspace, spf1.mcsv.net (unrecognized), Mailchimp/Mandrill, Zendesk, Postmark, Salesforce). Audit each include to confirm it is still needed, configure provider-specific DKIM, and keep DMARC enforcement and alignment strong across every authorized sender."
+			},
+			{
+				"category": "dmarc",
+				"title": "No forensic reporting configured (ruf= absent)",
+				"severity": "low",
+				"detail": "Aggregate reporting (rua=) is configured but forensic reporting (ruf=) is not. Forensic reports provide detailed failure information useful for troubleshooting."
+			},
+			{
+				"category": "dmarc",
+				"title": "Relaxed DKIM alignment",
+				"severity": "low",
+				"detail": "DKIM alignment mode is relaxed (adkim=r or unset). Consider adkim=s (strict) for stronger authentication."
+			},
+			{
+				"category": "dmarc",
+				"title": "Relaxed SPF alignment",
+				"severity": "info",
+				"detail": "SPF alignment mode is relaxed (aspf=r or unset). Strict alignment (aspf=s) only strengthens DMARC when every authorized sender's return-path (envelope-from) domain exactly matches the From domain — untrue for most ESP-relayed mail (e.g. Resend, SendGrid, Mailchimp, SES with a custom MAIL FROM), where the return-path sits on a subdomain: wherever the From domain differs from it (typically the apex), aspf=s fails SPF alignment for that traffic and leaves DKIM as the only authentication leg. Mail whose From address stays on that same subdomain still aligns under aspf=s. Set aspf=s only after DMARC aggregate reports confirm every sender's return-path domain exactly matches the From domain; otherwise aspf=r is the correct setting."
+			},
+			{
+				"category": "dmarc",
+				"title": "DMARC properly configured",
+				"severity": "info",
+				"detail": "DMARC record found with policy \"reject\" and valid core tags."
+			},
+			{
+				"category": "dkim",
+				"title": "Missing DKIM version tag: k1",
+				"severity": "info",
+				"detail": "DKIM selector \"k1\" is CNAME-delegated to Mailchimp and the upstream record omits the v=DKIM1 tag. This is RFC 6376 §3.6.1-tolerated; only Mailchimp can change it."
+			},
+			{
+				"category": "dkim",
+				"title": "Missing DKIM version tag: s1",
+				"severity": "info",
+				"detail": "DKIM selector \"s1\" is CNAME-delegated to SendGrid and the upstream record omits the v=DKIM1 tag. This is RFC 6376 §3.6.1-tolerated; only SendGrid can change it."
+			},
+			{
+				"category": "dkim",
+				"title": "Legacy RSA key: smtpapi",
+				"severity": "medium",
+				"detail": "DKIM RSA key for \"smtpapi\" is legacy (1024 bits). RFC 8301 §3.2 requires at least 1024-bit RSA and recommends at least 2048 bits. Plan an upgrade to 2048-bit RSA or Ed25519 where supported; if your mail provider manages this key, ask about its supported key sizes."
+			},
+			{
+				"category": "dkim",
+				"title": "Missing DKIM version tag: smtpapi",
+				"severity": "medium",
+				"detail": "DKIM selector \"smtpapi\" is missing the v= tag. Should be set to v=DKIM1."
+			},
+			{
+				"category": "dkim",
+				"title": "Similar DKIM key-strength findings consolidated",
+				"severity": "info",
+				"detail": "Consolidated 2 duplicate selector-probe key-strength finding(s) to reduce repeated penalty for identical key profiles across selectors."
+			},
+			{
+				"category": "dnssec",
+				"title": "Modern DNSSEC algorithm (ECDSA P-256)",
+				"severity": "info",
+				"detail": "cloudflare.com uses DNSKEY algorithm 13 (ECDSA P-256), which is a modern and secure choice."
+			},
+			{
+				"category": "ssl",
+				"title": "HSTS max-age too short",
+				"severity": "low",
+				"detail": "HSTS max-age is 15780000 seconds (183 days). Recommended minimum is 31536000 (1 year)."
+			},
+			{
+				"category": "mta_sts",
+				"title": "MTA-STS policy file not accessible",
+				"severity": "high",
+				"detail": "MTA-STS policy file at https://mta-sts.cloudflare.com/.well-known/mta-sts.txt returned HTTP 530. The policy file must be accessible over HTTPS."
+			},
+			{
+				"category": "ns",
+				"title": "Low nameserver diversity",
+				"severity": "low",
+				"detail": "All nameservers are under cloudflare.com. Cloudflare's anycast network provides built-in geographic redundancy, so this is lower risk than single-provider setups on traditional DNS hosts. For maximum independence, a secondary DNS provider can be added."
+			},
+			{
+				"category": "caa",
+				"title": "CAA properly configured",
+				"severity": "info",
+				"detail": "CAA records found with issue, issuewild, and iodef tags configured."
+			},
+			{
+				"category": "caa",
+				"title": "CAA policy is DNSSEC-protected",
+				"severity": "info",
+				"detail": "The CAA RRset at cloudflare.com was returned DNSSEC-authenticated. Under CA/Browser Forum TLS BR §4.2.2 subsection 1.3 (in force 2026-03-15) CAs must validate CAA lookups with DNSSEC to the root and must not treat validation errors as permission to issue, so this policy is cryptographically enforceable rather than advisory — it cannot be stripped in transit to unlock issuance."
+			},
+			{
+				"category": "bimi",
+				"title": "BIMI authority evidence present",
+				"severity": "info",
+				"detail": "BIMI record includes a mark certificate reference (a= authority evidence): https://www.cloudflare.com/cloudflare_1171114652.pem. The certificate type is not determined from the URL alone."
+			},
+			{
+				"category": "bimi",
+				"title": "BIMI logo exceeds 32 KB",
+				"severity": "low",
+				"detail": "BIMI logo exceeds 32 KB. The BIMI specification recommends logos be under 32 KB for reliable display in email clients."
+			},
+			{
+				"category": "tlsrpt",
+				"title": "TLS-RPT record configured",
+				"severity": "info",
+				"detail": "TLS-RPT record found and configured at _smtp._tls.cloudflare.com: v=TLSRPTv1; rua=mailto:rua@cloudflare.com;"
+			},
+			{
+				"category": "subdomain_takeover",
+				"title": "No dangling CNAME records found",
+				"severity": "info",
+				"detail": "No subdomain takeover vectors detected for cloudflare.com among known/active subdomains."
+			},
+			{
+				"category": "http_security",
+				"title": "CSP allows unsafe-inline scripts",
+				"severity": "medium",
+				"detail": "Content-Security-Policy contains 'unsafe-inline' in the script source, which undermines XSS protection. Use nonces or hashes instead."
+			},
+			{
+				"category": "http_security",
+				"title": "CSP allows unsafe-eval",
+				"severity": "medium",
+				"detail": "Content-Security-Policy contains 'unsafe-eval' in the script source, allowing dynamic code execution. This weakens XSS protection."
+			},
+			{
+				"category": "http_security",
+				"title": "No COEP header",
+				"severity": "info",
+				"detail": "No Cross-Origin-Embedder-Policy header found. COEP, combined with COOP, enables cross-origin isolation and mitigates Spectre-class side-channel attacks."
+			},
+			{
+				"category": "http_security",
+				"title": "HTTP origin attributed to Cloudflare CDN (heuristic)",
+				"severity": "info",
+				"detail": "Cloudflare CDN inferred from the origin ASN (AS13335) of the resolved A-record IP via team-cymru. Header-based CDN detection was inconclusive — this CDN does not emit a vendor-specific response header, and the scanner runs inside a Cloudflare Worker, which rewrites server: cloudflare on every outbound response."
+			},
+			{
+				"category": "dane",
+				"title": "DANE TLSA configured for _25._tcp.mxa-canary.global.inbound.cf-emailsecurity.net",
+				"severity": "low",
+				"detail": "11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxa-canary.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here. Authentication succeeds while any one association still matches, so a single superseded record during a rollover is not itself fatal; where the RRset is DNSSEC-authenticated and none match, DANE-validating clients reject the connection. Confirm each pin matches the live certificate after every certificate rotation."
+			},
+			{
+				"category": "dane",
+				"title": "DANE TLSA configured for _25._tcp.mxb-canary.global.inbound.cf-emailsecurity.net",
+				"severity": "low",
+				"detail": "2 DANE TLSA records present and syntactically well-formed for _25._tcp.mxb-canary.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here. Authentication succeeds while any one association still matches, so a single superseded record during a rollover is not itself fatal; where the RRset is DNSSEC-authenticated and none match, DANE-validating clients reject the connection. Confirm each pin matches the live certificate after every certificate rotation."
+			},
+			{
+				"category": "dane",
+				"title": "DANE TLSA configured for _25._tcp.mxa.global.inbound.cf-emailsecurity.net",
+				"severity": "low",
+				"detail": "11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxa.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here. Authentication succeeds while any one association still matches, so a single superseded record during a rollover is not itself fatal; where the RRset is DNSSEC-authenticated and none match, DANE-validating clients reject the connection. Confirm each pin matches the live certificate after every certificate rotation."
+			},
+			{
+				"category": "dane",
+				"title": "DANE TLSA configured for _25._tcp.mxb.global.inbound.cf-emailsecurity.net",
+				"severity": "low",
+				"detail": "11 DANE TLSA records present and syntactically well-formed for _25._tcp.mxb.global.inbound.cf-emailsecurity.net. This check does not verify the pinned data against the certificate the server presents, so a stale pin is not detected here. Authentication succeeds while any one association still matches, so a single superseded record during a rollover is not itself fatal; where the RRset is DNSSEC-authenticated and none match, DANE-validating clients reject the connection. Confirm each pin matches the live certificate after every certificate rotation."
+			},
+			{
+				"category": "mx",
+				"title": "MX records found",
+				"severity": "info",
+				"detail": "4 mail exchange record(s) present."
+			},
+			{
+				"category": "dane_https",
+				"title": "No DANE TLSA for HTTPS",
+				"severity": "low",
+				"detail": "No TLSA record found at _443._tcp.cloudflare.com. DANE can pin web server certificates to DNS, providing an additional layer of trust beyond the CA system. Implement DANE-EE (usage 3) with DNSSEC enabled for maximum security."
+			},
+			{
+				"category": "svcb_https",
+				"title": "HTTPS record configured",
+				"severity": "info",
+				"detail": "HTTPS record found at cloudflare.com (priority 1): ALPN= h3, h2 ."
+			},
+			{
+				"category": "svcb_https",
+				"title": "HTTP/3 (QUIC) advertised via HTTPS record",
+				"severity": "info",
+				"detail": "HTTPS record at cloudflare.com advertises HTTP/3 (h3) ALPN, enabling QUIC-based transport. This provides improved performance and resilience, especially on lossy networks."
+			},
+			{
+				"category": "subdomailing",
+				"title": "No SubdoMailing risk detected",
+				"severity": "info",
+				"detail": "Analyzed 6 SPF include/redirect domain(s) for cloudflare.com. All resolve correctly with no takeover indicators."
+			},
+			{
+				"category": "dnskey_strength",
+				"title": "Modern DNSKEY algorithm (ECDSA P-256)",
+				"severity": "info",
+				"detail": "cloudflare.com signs with DNSKEY algorithm 13 (ECDSA P-256), a modern and recommended choice."
+			},
+			{
+				"category": "ptr",
+				"title": "No reverse DNS (PTR) for mail servers",
+				"severity": "info",
+				"detail": "None of the 4 mail-server IP(s) have a PTR record. mxa-canary.global.inbound.cf-emailsecurity.net (172.65.169.99): no PTR record; mxb-canary.global.inbound.cf-emailsecurity.net (172.65.65.66): no PTR record; mxa.global.inbound.cf-emailsecurity.net (172.65.64.137): no PTR record; mxb.global.inbound.cf-emailsecurity.net (172.65.64.137): no PTR record"
+			}
+		],
+		"scoringProfile": "mail_enabled",
+		"scoringSignals": [
+			"MX present",
+			"DKIM present",
+			"BIMI present",
+			"DMARC enforcing",
+			"SSL valid",
+			"CAA present"
+		],
+		"scoringNote": null,
+		"adaptiveWeightDeltas": null,
+		"percentileRank": null,
+		"spoofabilityScore": null,
+		"interactionEffects": [],
+		"checkStatuses": {
+			"spf": "completed",
+			"dmarc": "completed",
+			"dkim": "completed",
+			"dnssec": "completed",
+			"ssl": "completed",
+			"mta_sts": "completed",
+			"ns": "completed",
+			"caa": "completed",
+			"bimi": "completed",
+			"tlsrpt": "completed",
+			"subdomain_takeover": "completed",
+			"http_security": "completed",
+			"dane": "completed",
+			"mx": "completed",
+			"dane_https": "completed",
+			"svcb_https": "completed",
+			"subdomailing": "completed",
+			"dnskey_strength": "completed",
+			"ptr": "completed"
+		},
+		"dnssecSource": "domain_configured",
+		"cdnProvider": "Cloudflare",
+		"notApplicableCategories": [],
+		"inconclusiveCategories": [],
+		"evidence": {
+			"attempted": 19,
+			"completed": 19,
+			"ratio": 1
+		},
+		"evidenceInsufficient": false,
+		"evidenceNote": null,
+		"timestamp": "2026-09-10T00:31:57.511Z",
+		"cached": false,
+		"scoringModelVersion": "1.25.0",
+		"dnsChecksPackageVersion": "1.37.0",
+		"scoringConfigHash": "a89c66e7",
+		"source": "https://www.blackveilsecurity.com/security-report/cloudflare.com",
+		"report_url": "https://www.blackveilsecurity.com/security-report/cloudflare.com"
+	}
+}

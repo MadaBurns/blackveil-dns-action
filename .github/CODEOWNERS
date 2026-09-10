@@ -5,3 +5,6 @@
 action.yml @blackveil-security/devops
 scan.mjs @blackveil-security/security-team
 .github/workflows/ @blackveil-security/devops
+
+lib/ @blackveil-security/security-team
+test/ @blackveil-security/security-team

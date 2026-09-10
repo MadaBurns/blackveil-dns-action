@@ -1,13 +1,35 @@
-name: Self-test
+name: Test
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  unit:
+    name: Unit tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm run check
+      - run: npm test
+
+  self-test:
+    name: Live self-test
+    runs-on: ubuntu-latest
+    # Live scan against the public endpoint; runs after unit tests so a parsing
+    # regression fails fast without spending free-tier scan quota.
+    needs: unit
     steps:
       - uses: actions/checkout@v6
       - uses: ./
@@ -15,10 +37,37 @@ jobs:
         with:
           domain: cloudflare.com
           minimum-grade: D
-      - run: |
-          echo "Score: ${{ steps.scan.outputs.score }}"
-          echo "Grade: ${{ steps.scan.outputs.grade }}"
-          echo "Passed: ${{ steps.scan.outputs.passed }}"
-          echo "Profile: ${{ steps.scan.outputs.scoring-profile }}"
-          echo "Percentile: ${{ steps.scan.outputs.percentile-rank }}"
-          echo "Spoofability: ${{ steps.scan.outputs.spoofability-score }}"
+      - name: Assert outputs
+        env:
+          MEASURED: ${{ steps.scan.outputs.measured }}
+          GRADE: ${{ steps.scan.outputs.grade }}
+          SCORE: ${{ steps.scan.outputs.score }}
+          PASSED: ${{ steps.scan.outputs.passed }}
+          PROFILE: ${{ steps.scan.outputs.scoring-profile }}
+          REPORT_URL: ${{ steps.scan.outputs.report-url }}
+        run: |
+          echo "Score: $SCORE  Grade: $GRADE  Passed: $PASSED  Measured: $MEASURED"
+          echo "Profile: $PROFILE  Report: $REPORT_URL"
+          test "$MEASURED" = "true"
+          test "$PASSED" = "true"
+          test -n "$GRADE" && test -n "$SCORE"
+          case "$REPORT_URL" in https://*) ;; *) echo "bad report-url"; exit 1;; esac
+
+      - name: Ungraded domain fails closed
+        id: nx
+        uses: ./
+        continue-on-error: true
+        with:
+          domain: this-domain-does-not-exist-9f8e7d6c.com
+          minimum-grade: F
+      - name: Assert ungraded behaviour
+        env:
+          OUTCOME: ${{ steps.nx.outcome }}
+          MEASURED: ${{ steps.nx.outputs.measured }}
+          PASSED: ${{ steps.nx.outputs.passed }}
+          GRADE: ${{ steps.nx.outputs.grade }}
+        run: |
+          test "$OUTCOME" = "failure"
+          test "$MEASURED" = "false"
+          test "$PASSED" = "false"
+          test -z "$GRADE"

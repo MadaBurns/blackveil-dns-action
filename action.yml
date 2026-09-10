@@ -1,5 +1,5 @@
 name: "Blackveil DNS Security Scanner"
-description: "Scan your domain's DNS & email security configuration and enforce minimum grade in CI"
+description: "Scan your domain's DNS & email security configuration and enforce a minimum grade in CI"
 author: "Blackveil"
 
 branding:
@@ -11,34 +11,45 @@ inputs:
     description: "Domain to scan (e.g. example.com)"
     required: true
   minimum-grade:
-    description: "Minimum passing grade (A+, A, B+, B, C+, C, D+, D, F)"
+    description: "Minimum passing grade: A+, A, B, C, D or F (legacy B+/C+/D+ are accepted and mapped to B/C/D)"
     required: false
     default: "C"
   profile:
-    description: "Scoring profile: auto, mail_enabled, enterprise_mail, non_mail, web_only, minimal"
+    description: "Scoring profile: auto, mail_enabled, enterprise_mail, non_mail, web_only, minimal, authoritative_dns_infra"
     required: false
     default: "auto"
+  fail-on-inconclusive:
+    description: "Fail the job when the domain cannot be graded (does not resolve, too few checks completed). Set to 'false' to only warn."
+    required: false
+    default: "true"
+  force-refresh:
+    description: "Bypass the server-side scan cache and run a fresh scan"
+    required: false
+    default: "false"
   api-key:
-    description: "Blackveil DNS API key for authenticated access (bypasses rate limits)"
+    description: "Blackveil DNS API key for authenticated access (higher rate limits)"
     required: false
   endpoint:
-    description: "MCP endpoint URL"
+    description: "MCP endpoint URL (https only)"
     required: false
     default: "https://dns-mcp.blackveilsecurity.com/mcp"
 
 outputs:
   score:
-    description: "Numeric score (0-100)"
+    description: "Numeric score (0-100). Empty when the domain could not be graded."
     value: ${{ steps.scan.outputs.score }}
   grade:
-    description: "Letter grade (A+ through F)"
+    description: "Letter grade (A+, A, B, C, D, F). Empty when the domain could not be graded."
     value: ${{ steps.scan.outputs.grade }}
+  measured:
+    description: "'true' when the scan produced a grade, 'false' when the domain could not be graded"
+    value: ${{ steps.scan.outputs.measured }}
+  passed:
+    description: "'true' if the grade meets minimum-grade, 'false' otherwise (always 'false' when not measured)"
+    value: ${{ steps.scan.outputs.passed }}
   maturity:
     description: "Email security maturity stage name"
     value: ${{ steps.scan.outputs.maturity }}
-  passed:
-    description: "'true' if grade meets minimum-grade threshold, 'false' otherwise"
-    value: ${{ steps.scan.outputs.passed }}
   scoring-profile:
     description: "Scoring profile used (detected or explicit)"
     value: ${{ steps.scan.outputs.scoring-profile }}
@@ -46,7 +57,7 @@ outputs:
     description: "JSON object with finding counts by severity (critical, high, medium, low)"
     value: ${{ steps.scan.outputs.finding-counts }}
   interaction-effects:
-    description: "JSON array of scoring interaction penalties (ruleId, penalty, narrative)"
+    description: "JSON array of scoring interaction penalties (ruleId, penalty, narrative). Empty when none."
     value: ${{ steps.scan.outputs.interaction-effects }}
   percentile-rank:
     description: "Percentile rank within the scoring profile population (0-100). Empty when insufficient data."
@@ -54,14 +65,20 @@ outputs:
   spoofability-score:
     description: "Composite email spoofability score (0-100, higher = more spoofable). Empty when not computed."
     value: ${{ steps.scan.outputs.spoofability-score }}
+  report-url:
+    description: "Public per-domain security report URL"
+    value: ${{ steps.scan.outputs.report-url }}
+  cached:
+    description: "'true' when the server returned a cached scan result"
+    value: ${{ steps.scan.outputs.cached }}
 
 runs:
   using: "composite"
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
       with:
-        node-version: "20"
+        node-version: "24"
 
     - name: Run Blackveil DNS scan
       id: scan
@@ -70,6 +87,8 @@ runs:
         INPUT_DOMAIN: ${{ inputs.domain }}
         INPUT_MINIMUM_GRADE: ${{ inputs.minimum-grade }}
         INPUT_PROFILE: ${{ inputs.profile }}
+        INPUT_FAIL_ON_INCONCLUSIVE: ${{ inputs.fail-on-inconclusive }}
+        INPUT_FORCE_REFRESH: ${{ inputs.force-refresh }}
         INPUT_API_KEY: ${{ inputs.api-key }}
         INPUT_ENDPOINT: ${{ inputs.endpoint }}
       run: node "${{ github.action_path }}/scan.mjs"

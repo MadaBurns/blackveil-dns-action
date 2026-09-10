@@ -1,0 +1,58 @@
+{
+	"content": [
+		{
+			"type": "text",
+			"text": "DNS Security Scan: this-domain-does-not-exist-9f8e7d6c.com\n========================================\nOverall Score: not measured\nthis-domain-does-not-exist-9f8e7d6c.com does not resolve (NXDOMAIN) — the domain does not exist in DNS, so there is no security posture to assess.\n\nEmail Security Maturity: not measured — Does not resolve\nthis-domain-does-not-exist-9f8e7d6c.com does not resolve (NXDOMAIN) — the domain does not exist in DNS, so there is no security posture to assess.\nNext step: Confirm the domain is registered and has authoritative nameservers. If it was recently registered, DNS may not have propagated yet.\n\nScoring Profile: mail_enabled (domain does not resolve (NXDOMAIN))\n\nthis-domain-does-not-exist-9f8e7d6c.com does not resolve (NXDOMAIN) — the domain does not exist in DNS, so there is no security posture to assess.\n\nCategory Scores:\n------------------------------\n\nNo security issues found.\n\nScan completed: 2026-09-10T00:32:15.453Z\nScoring model: v1.25.0 (scoring policy) | dns-checks package: v1.37.0 (engine code)"
+		},
+		{
+			"type": "text",
+			"text": "<!-- STRUCTURED_RESULT\n{\"domain\":\"this-domain-does-not-exist-9f8e7d6c.com\",\"score\":null,\"grade\":null,\"passed\":null,\"measured\":false,\"maturityStage\":null,\"maturityLabel\":\"Does not resolve\",\"categoryScores\":{},\"findingCounts\":{\"critical\":0,\"high\":0,\"medium\":0,\"low\":0},\"findings\":[],\"scoringProfile\":\"mail_enabled\",\"scoringSignals\":[\"domain does not resolve (NXDOMAIN)\"],\"scoringNote\":\"this-domain-does-not-exist-9f8e7d6c.com does not resolve (NXDOMAIN) — the domain does not exist in DNS, so there is no security posture to assess.\",\"adaptiveWeightDeltas\":null,\"percentileRank\":null,\"spoofabilityScore\":null,\"interactionEffects\":[],\"checkStatuses\":{},\"dnssecSource\":null,\"cdnProvider\":null,\"notApplicableCategories\":[],\"inconclusiveCategories\":[],\"evidence\":{\"attempted\":0,\"completed\":0,\"ratio\":0},\"evidenceInsufficient\":false,\"evidenceNote\":null,\"timestamp\":\"2026-09-10T00:32:15.453Z\",\"cached\":false,\"scoringModelVersion\":\"1.25.0\",\"dnsChecksPackageVersion\":\"1.37.0\",\"scoringConfigHash\":\"a89c66e7\",\"resolves\":false}\nSTRUCTURED_RESULT -->"
+		}
+	],
+	"structuredContent": {
+		"domain": "this-domain-does-not-exist-9f8e7d6c.com",
+		"score": null,
+		"grade": null,
+		"passed": null,
+		"measured": false,
+		"maturityStage": null,
+		"maturityLabel": "Does not resolve",
+		"categoryScores": {},
+		"findingCounts": {
+			"critical": 0,
+			"high": 0,
+			"medium": 0,
+			"low": 0
+		},
+		"findings": [],
+		"scoringProfile": "mail_enabled",
+		"scoringSignals": [
+			"domain does not resolve (NXDOMAIN)"
+		],
+		"scoringNote": "this-domain-does-not-exist-9f8e7d6c.com does not resolve (NXDOMAIN) — the domain does not exist in DNS, so there is no security posture to assess.",
+		"adaptiveWeightDeltas": null,
+		"percentileRank": null,
+		"spoofabilityScore": null,
+		"interactionEffects": [],
+		"checkStatuses": {},
+		"dnssecSource": null,
+		"cdnProvider": null,
+		"notApplicableCategories": [],
+		"inconclusiveCategories": [],
+		"evidence": {
+			"attempted": 0,
+			"completed": 0,
+			"ratio": 0
+		},
+		"evidenceInsufficient": false,
+		"evidenceNote": null,
+		"timestamp": "2026-09-10T00:32:15.453Z",
+		"cached": false,
+		"scoringModelVersion": "1.25.0",
+		"dnsChecksPackageVersion": "1.37.0",
+		"scoringConfigHash": "a89c66e7",
+		"resolves": false,
+		"source": "https://www.blackveilsecurity.com/security-report/this-domain-does-not-exist-9f8e7d6c.com",
+		"report_url": "https://www.blackveilsecurity.com/security-report/this-domain-does-not-exist-9f8e7d6c.com"
+	}
+}

@@ -295,6 +295,12 @@ INPUT_DOMAIN=example.com INPUT_MINIMUM_GRADE=C node scan.mjs   # live run
 
 The pure logic lives in `lib/` (`grades`, `parse`, `summary`, `mcp-client`, `github`); `scan.mjs` is the entry point. Fixtures under `test/fixtures/` are real `scan_domain` responses.
 
+## Support
+
+- **Bug reports & feature requests:** [GitHub Issues](https://github.com/MadaBurns/blackveil-dns-action/issues)
+- **Upstream MCP server:** [MadaBurns/bv-mcp](https://github.com/MadaBurns/bv-mcp)
+- **Support the project:** [Ko-fi](https://ko-fi.com/madaburns)
+
 ## License
 
 [BSL 1.1](LICENSE) — Non-commercial use permitted. Converts to MIT on 2030-03-17.
